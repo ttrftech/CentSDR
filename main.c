@@ -110,7 +110,7 @@ static void cmd_i2sstart(BaseSequentialStream *chp, int argc, char *argv[])
   (void)chp;
   (void)argc;
   (void)argv;
-  i2sStart(&I2SD2, &i2sconfig);
+  i2sStartExchange(&I2SD2);
 }
 
 static void cmd_i2sstop(BaseSequentialStream *chp, int argc, char *argv[])
@@ -118,7 +118,7 @@ static void cmd_i2sstop(BaseSequentialStream *chp, int argc, char *argv[])
   (void)chp;
   (void)argc;
   (void)argv;
-  i2sStop(&I2SD2);
+  i2sStopExchange(&I2SD2);
 }
 
 #define FS 48000
@@ -136,8 +136,8 @@ static void cmd_audio(BaseSequentialStream *chp, int argc, char *argv[])
 
     for (i = 0; i < AUDIO_BUFFER_LEN/2; i++) {
       int16_t x = (int16_t)(sin(6.28 * i * freq / FS) * 10000);
-      audio_buffer[i  ] = x;
-      audio_buffer[i+1] = x;
+      audio_buffer[i*2  ] = x;
+      audio_buffer[i*2+1] = x;
     }
 }
 
@@ -197,10 +197,11 @@ int __attribute__((noreturn)) main(void)
   /*
    * I2S Initialize
    */
-  //tlv320aic3204_init();
+  tlv320aic3204_init();
   i2sInit();
   i2sObjectInit(&I2SD2);
-  //i2sStart(&I2SD2, &i2sconfig);
+  i2sStart(&I2SD2, &i2sconfig);
+  i2sStartExchange(&I2SD2);
 
   /*
    * Shell manager initialization.
