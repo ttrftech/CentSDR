@@ -5,6 +5,7 @@
 
 #include <chprintf.h>
 #include <stdlib.h>
+#include <math.h>
 #include <shell.h>
 
 #include "si5351.h"
@@ -77,12 +78,80 @@ static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
     si5351_set_frequency(freq);
 }
 
+
+#define AUDIO_BUFFER_LEN 4096
+
+int16_t audio_buffer[AUDIO_BUFFER_LEN];
+void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
+{
+}
+
+static const I2SConfig i2sconfig = {
+  audio_buffer, // TX Buffer
+  audio_buffer, // RX Buffer
+  AUDIO_BUFFER_LEN,
+  i2s_end_callback,
+  0, // i2scfgr
+  2 // i2spr
+};
+
+extern void tlv320aic3204_init(void);
+
+static void cmd_i2sinit(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  tlv320aic3204_init();
+}
+
+static void cmd_i2sstart(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  i2sStart(&I2SD2, &i2sconfig);
+}
+
+static void cmd_i2sstop(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)chp;
+  (void)argc;
+  (void)argv;
+  i2sStop(&I2SD2);
+}
+
+#define FS 48000
+
+static void cmd_audio(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int freq = 440;
+    int i;
+    if (argc > 1) {
+        chprintf(chp, "usage: freq {frequency(kHz)}\r\n");
+        return;
+    } else if (argc == 1) {
+      freq = atoi(argv[0]);
+    }
+
+    for (i = 0; i < AUDIO_BUFFER_LEN/2; i++) {
+      int16_t x = (int16_t)(sin(6.28 * i * freq / FS) * 10000);
+      audio_buffer[i  ] = x;
+      audio_buffer[i+1] = x;
+    }
+}
+
+
 #define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
 
 static const ShellCommand commands[] =
 {
     { "reset", cmd_reset },
     { "freq", cmd_freq },
+    { "i2sinit", cmd_i2sinit },
+    { "i2sstart", cmd_i2sstart },
+    { "i2sstop", cmd_i2sstop },
+    { "audio", cmd_audio },
     { NULL, NULL }
 };
 
@@ -91,7 +160,6 @@ static const ShellConfig shell_cfg1 =
     (BaseSequentialStream *)&SDU1,
     commands
 };
-
 
 /*
  * Application entry point.
@@ -125,6 +193,14 @@ int __attribute__((noreturn)) main(void)
   chThdSleepMilliseconds(1500);
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
+
+  /*
+   * I2S Initialize
+   */
+  //tlv320aic3204_init();
+  i2sInit();
+  i2sObjectInit(&I2SD2);
+  //i2sStart(&I2SD2, &i2sconfig);
 
   /*
    * Shell manager initialization.

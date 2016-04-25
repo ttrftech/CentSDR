@@ -114,7 +114,7 @@ CSRC = $(STARTUPSRC) \
        $(STREAMSSRC) \
        $(SHELLSRC) \
        usbcfg.c \
-       si5351.c si5351_low.c \
+       si5351.c si5351_low.c tlv320aic3204.c \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -208,7 +208,7 @@ UINCDIR =
 ULIBDIR =
 
 # List all user libraries here
-ULIBS =
+ULIBS = -lm
 
 #
 # End of user defines

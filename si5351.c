@@ -3,7 +3,7 @@
 
 #define SI5351_I2C_ADDR   	(0x60<<1)
 
-int I2CWrite(int addr, char d0, char d1);
+extern int I2CWrite(int addr, char d0, char d1);
 
 static void
 si5351_write(uint8_t reg, uint8_t dat)
