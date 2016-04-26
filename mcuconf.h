@@ -147,7 +147,8 @@
 #define STM32_I2S_SPI1_MODE                 (STM32_I2S_MODE_MASTER |        \
                                              STM32_I2S_MODE_RX)
 #define STM32_I2S_SPI2_MODE                 (STM32_I2S_MODE_SLAVE |        \
-                                             STM32_I2S_MODE_TX)
+                                             STM32_I2S_MODE_TX |           \
+                                             STM32_I2S_MODE_FULLDUPLEX)
 #define STM32_I2S_SPI1_IRQ_PRIORITY         2
 #define STM32_I2S_SPI2_IRQ_PRIORITY         2
 #define STM32_I2S_SPI1_DMA_PRIORITY         1
