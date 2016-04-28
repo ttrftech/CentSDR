@@ -1,7 +1,6 @@
 #include "ch.h"
 #include "hal.h"
 #include "usbcfg.h"
-#include "ch_test.h"
 
 #include <chprintf.h>
 #include <stdlib.h>
@@ -71,7 +70,7 @@ static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int freq;
     if (argc != 1) {
-        chprintf(chp, "usage: freq {frequency(kHz)}\r\n");
+        chprintf(chp, "usage: freq {frequency(Hz)}\r\n");
         return;
     }
     freq = atoi(argv[0]);
@@ -79,19 +78,62 @@ static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
 }
 
 
-#define AUDIO_BUFFER_LEN 9600
+#define AUDIO_BUFFER_LEN 4800
 
-static int callback_count = 0;
+static struct {
+  int16_t rms[2];
+  int16_t ave[2];
+  int callback_count;
+} stat;
 
-int16_t audio_buffer[AUDIO_BUFFER_LEN];
+__attribute__ ( ( always_inline ) ) __STATIC_INLINE float _VSQRTF(float op1) {
+  float result;
+  __ASM volatile ("vsqrt.f32 %0, %1" : "=w" (result) : "w" (op1) );
+  return(result);
+}
+
+int16_t rx_buffer[AUDIO_BUFFER_LEN];
+int16_t tx_buffer[AUDIO_BUFFER_LEN];
+
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 {
-  callback_count++;
+  int16_t *p = &rx_buffer[offset];
+  int16_t *q = &tx_buffer[offset];
+  uint32_t i;
+  int32_t acc0, acc1;
+  int32_t ave0, ave1;
+  int32_t count = n / 2;
+  (void)i2sp;
+  acc0 = acc1 = 0;
+  for (i = 0; i < n; i += 2) {
+    acc0 += p[i];
+    acc1 += p[i+1];
+  }
+  ave0 = acc0 / count;
+  ave1 = acc1 / count;
+  acc0 = acc1 = 0;
+  for (i = 0; i < n; i += 2) {
+    acc0 += (p[i] - ave0)*(p[i] - ave0);
+    acc1 += (p[i+1] - ave1)*(p[i+1] - ave1);
+  }
+  stat.rms[0] = sqrt(acc0 / count);
+  stat.rms[1] = sqrt(acc1 / count);
+  stat.ave[0] = ave0;
+  stat.ave[1] = ave1;
+  stat.callback_count++;
+
+  for (i = 0; i < n; i += 2) {
+    int32_t x = p[i];
+    int32_t y = p[i+1];
+    //q[i] = q[i+1] = (int16_t)sqrt(x*x+y*y); //_VSQRTF(x*x+y*y);
+    q[i] = x;
+    q[i+1] = y;
+  }
 }
 
 static const I2SConfig i2sconfig = {
-  audio_buffer, // TX Buffer
-  audio_buffer, // RX Buffer
+  tx_buffer, // TX Buffer
+  rx_buffer, // RX Buffer
   AUDIO_BUFFER_LEN,
   i2s_end_callback,
   0, // i2scfgr
@@ -131,8 +173,8 @@ static void tone_generate(int freq)
     int i;
     for (i = 0; i < AUDIO_BUFFER_LEN/2; i++) {
       int16_t x = (int16_t)(sin(2*M_PI * i * freq / FS) * 10000);
-      audio_buffer[i*2  ] = x;
-      audio_buffer[i*2+1] = x;
+      tx_buffer[i*2  ] = x;
+      tx_buffer[i*2+1] = x;
     }
 }
 
@@ -155,17 +197,28 @@ static void cmd_audio(BaseSequentialStream *chp, int argc, char *argv[])
 
 static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
 {
-  int i;
+  int i, j;
   (void)argc;
   (void)argv;
-  for (i = 0; i < 100; i++) {
-    chprintf(chp, "%04xU ", 0xffff & (int)audio_buffer[i]);
+  for (i = 0; i < 128; ) {
+    for (j = 0; j < 8; j++, i++) {
+      chprintf(chp, "%04x ", 0xffff & (int)rx_buffer[i]);
+    }
+    chprintf(chp, "\r\n");
   }
-  chprintf(chp, "callback count: %d\r\n", callback_count);
-  chprintf(chp, "\r\n");
+}
+
+static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+  chprintf(chp, "average: %d %d\r\n", stat.ave[0], stat.ave[1]);
+  chprintf(chp, "rms: %d %d\r\n", stat.rms[0], stat.rms[1]);
+  chprintf(chp, "callback count: %d\r\n", stat.callback_count);
 }
 
 extern void tlv320aic3204_set_micgain(int gain);
+extern void tlv320aic3204_set_volume(int gain);
 
 static void cmd_micgain(BaseSequentialStream *chp, int argc, char *argv[])
 {
@@ -179,18 +232,64 @@ static void cmd_micgain(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_micgain(gain);
 }
 
+static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int gain;
+    if (argc != 1) {
+        chprintf(chp, "usage: volume {gain(-7-29)}\r\n");
+        return;
+    }
+
+    gain = atoi(argv[0]);
+    tlv320aic3204_set_volume(gain);
+}
+
+static int ppm = -20850;
+
+void
+set_tune(int khz)
+{
+  si5351_set_frequency(4 * khz * 1000 + (4 * khz*ppm)/1000000);
+}
+
+static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int freq;
+    if (argc != 1) {
+        chprintf(chp, "usage: tune {frequency(kHz)}\r\n");
+        return;
+    }
+    freq = atoi(argv[0]);
+    set_tune(freq);
+}
+
+static void cmd_ppm(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    if (argc != 1) {
+        chprintf(chp, "usage: ppm {value}\r\n");
+        chprintf(chp, "current: %d\r\n", ppm);
+        return;
+    }
+    ppm = atoi(argv[0]);
+}
+
+
 #define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
 
 static const ShellCommand commands[] =
 {
     { "reset", cmd_reset },
     { "freq", cmd_freq },
+    { "tune", cmd_tune },
+    { "ppm", cmd_ppm },
     { "i2sinit", cmd_i2sinit },
     { "i2sstart", cmd_i2sstart },
     { "i2sstop", cmd_i2sstop },
     { "audio", cmd_audio },
     { "data", cmd_data },
+    { "stat", cmd_stat },
     { "micgain", cmd_micgain },
+    { "volume", cmd_volume },
     { NULL, NULL }
 };
 
@@ -245,7 +344,8 @@ int __attribute__((noreturn)) main(void)
   //tone_generate(440);
 
   //si5351_set_frequency(48001);
-  si5351_set_frequency(567*4); // NHK1
+  //si5351_set_frequency(567*4); // NHK1
+  set_tune(567); // NHK1
 
   /*
    * Shell manager initialization.

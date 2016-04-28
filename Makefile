@@ -94,7 +94,7 @@ include $(CHIBIOS)/os/hal/osal/rt/osal.mk
 include $(CHIBIOS)/os/rt/rt.mk
 include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 # Other files (optional).
-include $(CHIBIOS)/test/rt/test.mk
+#include $(CHIBIOS)/test/rt/test.mk
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 include $(CHIBIOS)/os/various/shell/shell.mk
 
@@ -110,7 +110,6 @@ CSRC = $(STARTUPSRC) \
        $(HALSRC) \
        $(PLATFORMSRC) \
        $(BOARDSRC) \
-       $(TESTSRC) \
        $(STREAMSSRC) \
        $(SHELLSRC) \
        usbcfg.c \
@@ -145,7 +144,7 @@ TCPPSRC =
 ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
-         $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
+         $(HALINC) $(PLATFORMINC) $(BOARDINC) \
          $(STREAMSINC) $(SHELLINC)
 
 #
@@ -156,7 +155,7 @@ INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
 # Compiler settings
 #
 
-MCU  = cortex-m3
+MCU  = cortex-m4
 
 #TRGT = arm-elf-
 TRGT = arm-none-eabi-
@@ -196,7 +195,7 @@ CPPWARN = -Wall -Wextra -Wundef
 #
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS =
+UDEFS = -DSHELL_CMD_TEST_ENABLED=0
 
 # Define ASM defines here
 UADEFS =

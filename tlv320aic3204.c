@@ -87,9 +87,26 @@ void tlv320aic3204_init(void)
 
 void tlv320aic3204_set_micgain(int gain)
 {
-    if (gain < 0 || gain > 95)
-        return;
+    if (gain < 0)
+      gain = 0;
+    if (gain > 95)
+      gain = 95;
 
+    I2CWrite(AIC3204_ADDR, 0x00, 0x01); /* Select Page 1 */
     I2CWrite(AIC3204_ADDR, 0x3b, gain); /* Unmute Left MICPGA, set gain */
     I2CWrite(AIC3204_ADDR, 0x3c, gain); /* Unmute Right MICPGA, set gain */
+    I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
+}
+
+void tlv320aic3204_set_volume(int gain)
+{
+    if (gain > 29)
+        gain = 29;
+    if (gain < -6) 
+        return;
+
+    I2CWrite(AIC3204_ADDR, 0x00, 0x01); /* Select Page 1 */
+    I2CWrite(AIC3204_ADDR, 0x10, gain); /* Unmute Left MICPGA, set gain */
+    I2CWrite(AIC3204_ADDR, 0x11, gain); /* Unmute Right MICPGA, set gain */
+    I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
 }
