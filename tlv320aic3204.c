@@ -85,12 +85,12 @@ void tlv320aic3204_init(void)
     I2CWrite(AIC3204_ADDR, 0x43, 0x93); /* Enable Headphone detection, Debounce 256ms, Button Debounce 32ms */    
 }
 
-void tlv320aic3204_set_micgain(int gain)
+void tlv320aic3204_set_gain(int gain)
 {
     if (gain < 0)
-      gain = 0;
+        gain = 0;
     if (gain > 95)
-      gain = 95;
+        gain = 95;
 
     I2CWrite(AIC3204_ADDR, 0x00, 0x01); /* Select Page 1 */
     I2CWrite(AIC3204_ADDR, 0x3b, gain); /* Unmute Left MICPGA, set gain */
@@ -102,8 +102,10 @@ void tlv320aic3204_set_volume(int gain)
 {
     if (gain > 29)
         gain = 29;
-    if (gain < -6) 
-        return;
+    else if (gain < -6) 
+        gain = 0x40;
+    else
+        gain &= 0x3f;
 
     I2CWrite(AIC3204_ADDR, 0x00, 0x01); /* Select Page 1 */
     I2CWrite(AIC3204_ADDR, 0x10, gain); /* Unmute Left MICPGA, set gain */

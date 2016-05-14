@@ -147,5 +147,8 @@ si5351_set_frequency(int freq)
     int32_t div = 800000000 / freq;
     int32_t num = 800000000 - freq * div;
     int32_t denom = freq;
+    int32_t k = freq / (1<<20) + 1;
+    num /= k;
+    denom /= k;
     si5351_setupMultisynth(0, SI5351_PLL_A, div, num, denom);
 }

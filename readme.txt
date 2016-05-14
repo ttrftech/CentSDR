@@ -1,13 +1,16 @@
 *****************************************************************************
-** ChibiOS/RT port for ARM-Cortex-M0 STM32F072.                            **
+** NanoSDR
 *****************************************************************************
 
-** TARGET **
+* Nano sized Software Defined Receiver
 
 The demo runs on an ST STM32F072-Discovery board.
 
-** The Demo **
+* Requirement
 
+* Build Procedure
+
+    $ 
 
 ** Build Procedure **
 

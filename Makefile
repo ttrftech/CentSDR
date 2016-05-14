@@ -57,10 +57,15 @@ endif
 # Architecture or project specific options
 #
 
+# Enables the use of FPU on Cortex-M4 (no, softfp, hard).
+ifeq ($(USE_FPU),)
+  USE_FPU = hard
+endif
+
 # Stack size to be allocated to the Cortex-M process stack. This stack is
 # the stack used by the main() thread.
 ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x200
+  USE_PROCESS_STACKSIZE = 0x400
 endif
 
 # Stack size to the allocated to the Cortex-M main/exceptions stack. This
@@ -113,7 +118,7 @@ CSRC = $(STARTUPSRC) \
        $(STREAMSSRC) \
        $(SHELLSRC) \
        usbcfg.c \
-       si5351.c si5351_low.c tlv320aic3204.c \
+       si5351.c si5351_low.c tlv320aic3204.c lcd.c ui.c \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -195,7 +200,7 @@ CPPWARN = -Wall -Wextra -Wundef
 #
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS = -DSHELL_CMD_TEST_ENABLED=0
+UDEFS = -DSHELL_CMD_TEST_ENABLED=0 
 
 # Define ASM defines here
 UADEFS =

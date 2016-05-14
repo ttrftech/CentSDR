@@ -7,9 +7,15 @@
 #include <math.h>
 #include <shell.h>
 
+#include "nanosdr.h"
 #include "si5351.h"
 
 #include <stm32f303xc.h>
+
+
+int count;
+int updated;
+
 
 static THD_WORKING_AREA(waThread1, 128);
 static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
@@ -88,7 +94,7 @@ static struct {
 
 __attribute__ ( ( always_inline ) ) __STATIC_INLINE float _VSQRTF(float op1) {
   float result;
-  __ASM volatile ("vsqrt.f32 %0, %1" : "=w" (result) : "w" (op1) );
+  __ASM volatile ("vsqrt.f32 %0,%1" : "=w"(result) : "w"(op1) );
   return(result);
 }
 
@@ -125,9 +131,15 @@ void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
   for (i = 0; i < n; i += 2) {
     int32_t x = p[i];
     int32_t y = p[i+1];
-    //q[i] = q[i+1] = (int16_t)sqrt(x*x+y*y); //_VSQRTF(x*x+y*y);
-    q[i] = x;
-    q[i+1] = y;
+    int32_t z;
+#define DCOFFSET 16383
+    x = x + DCOFFSET;
+    y = y + DCOFFSET;
+    z = (int16_t)_VSQRTF((float)(x*x+y*y)) - DCOFFSET;
+    //z = (int16_t)sqrtf(x*x+y*y) - DCOFFSET;
+    q[i] = q[i+1] = z;
+    //q[i] = x;
+    //q[i+1] = y;
   }
 }
 
@@ -200,12 +212,29 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
   int i, j;
   (void)argc;
   (void)argv;
-  for (i = 0; i < 128; ) {
-    for (j = 0; j < 8; j++, i++) {
-      chprintf(chp, "%04x ", 0xffff & (int)rx_buffer[i]);
+  int16_t *buf = rx_buffer;
+  
+  if (argc > 0) {
+    switch (atoi(argv[0])) {
+    case 0:
+      break;
+    case 1:
+      buf = tx_buffer;
+      break;
+    default:
+      chprintf(chp, "unknown source\r\n");
+      return;
+    }
+  }
+
+  i2sStopExchange(&I2SD2);
+  for (i = 0; i < AUDIO_BUFFER_LEN/2; ) {
+    for (j = 0; j < 16; j++, i++) {
+      chprintf(chp, "%04x ", 0xffff & (int)buf[i]);
     }
     chprintf(chp, "\r\n");
   }
+  i2sStartExchange(&I2SD2);
 }
 
 static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
@@ -217,19 +246,19 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   chprintf(chp, "callback count: %d\r\n", stat.callback_count);
 }
 
-extern void tlv320aic3204_set_micgain(int gain);
+extern void tlv320aic3204_set_gain(int gain);
 extern void tlv320aic3204_set_volume(int gain);
 
-static void cmd_micgain(BaseSequentialStream *chp, int argc, char *argv[])
+static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
     if (argc != 1) {
-        chprintf(chp, "usage: micgain {gain(0-95)}\r\n");
+        chprintf(chp, "usage: gain {gain(0-95)}\r\n");
         return;
     }
 
     gain = atoi(argv[0]);
-    tlv320aic3204_set_micgain(gain);
+    tlv320aic3204_set_gain(gain);
 }
 
 static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
@@ -244,12 +273,12 @@ static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_volume(gain);
 }
 
-static int ppm = -20850;
+static int ppm = 28430;
 
 void
-set_tune(int khz)
+set_tune(int hz)
 {
-  si5351_set_frequency(4 * khz * 1000 + (4 * khz*ppm)/1000000);
+  si5351_set_frequency(4*hz + (((4*(int32_t)hz/1000)*ppm)/1000000));
 }
 
 static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
@@ -273,6 +302,18 @@ static void cmd_ppm(BaseSequentialStream *chp, int argc, char *argv[])
     ppm = atoi(argv[0]);
 }
 
+#define BIT_PUSH	5
+#define BIT_DOWN0	4
+#define BIT_DOWN1	1
+#define BIT_UP0 	7
+#define BIT_UP1 	6
+
+static void cmd_port(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    (void)argc;
+    (void)argv;
+    chprintf(chp, "current: %x %d\r\n", palReadPort(GPIOA) & 0b11110010, count);
+}
 
 #define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
 
@@ -288,8 +329,9 @@ static const ShellCommand commands[] =
     { "audio", cmd_audio },
     { "data", cmd_data },
     { "stat", cmd_stat },
-    { "micgain", cmd_micgain },
+    { "gain", cmd_gain },
     { "volume", cmd_volume },
+    { "port", cmd_port },
     { NULL, NULL }
 };
 
@@ -297,6 +339,111 @@ static const ShellConfig shell_cfg1 =
 {
     (BaseSequentialStream *)&SDU1,
     commands
+};
+
+//static condition_variable_t condvar_button;
+
+static THD_WORKING_AREA(waThread2, 512);
+static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
+{
+    (void)arg;
+    chRegSetThreadName("button");
+    while (1)
+    {
+      ui_process();
+      chThdSleepMilliseconds(100);
+    }
+#if 0
+    int prev = palReadPort(GPIOA) & 0b11110010;
+    while (1)
+    {
+      int updated = 0;
+      int curr = palReadPort(GPIOA) & 0b11110010;
+#define BTN(bit)   ((curr ^ prev) & (1<<(bit))) && ((curr & (1<<(bit))) == 0)
+      if (BTN(BIT_PUSH)) {
+        count = 0; updated = 1;
+      }
+      if (BTN(BIT_UP0)) {
+        count++; updated = 1;
+      }
+      if (BTN(BIT_UP1)) {
+        count+=10; updated = 1;
+      }
+      if (BTN(BIT_DOWN0)) {
+        count--; updated = 1;
+      }
+      if (BTN(BIT_DOWN1)) {
+        count-=10; updated = 1;
+      }
+
+      if (updated) {
+        char buf[16];
+        itoa(count, buf, 10);
+        i2clcd_pos(0, 1);
+        i2clcd_str(buf);
+        i2clcd_str("        ");
+      }
+      prev = curr;
+      chThdSleepMilliseconds(100);
+    }
+#endif
+}
+
+void ext_callback(EXTDriver *extp, expchannel_t channel)
+{
+    (void)extp;
+    switch (channel) {
+    case BIT_UP0: count++; break;
+    case BIT_UP1: count += 10; break;
+    case BIT_DOWN0: count--; break;
+    case BIT_DOWN1: count -= 10; break;
+      //case BIT_PUSH: count = 0; break;
+    }
+    updated = 1;
+    //chCondSignalI(&condvar_button);
+#if 0
+    BaseSequentialStream *chp = &SDU1;
+    if (SDU1.config->usbp->state == USB_ACTIVE) {
+      chprintf(chp, "EXTI interrupt: %d\r\n", channel);
+    }
+#endif
+}
+
+static const EXTConfig extconf = {
+  {
+    { 0, NULL },
+    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
+    { 0, NULL },
+    { 0, NULL },
+    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
+    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
+    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
+    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL }
+  }
 };
 
 /*
@@ -315,7 +462,15 @@ int __attribute__((noreturn)) main(void)
   chSysInit();
 
   i2cStart(&I2CD1, &i2ccfg);
-
+#if 0
+  extStart(&EXTD1, &extconf);
+  extChannelEnable(&EXTD1, BIT_UP0);
+  extChannelEnable(&EXTD1, BIT_UP1);
+  extChannelEnable(&EXTD1, BIT_DOWN0);
+  extChannelEnable(&EXTD1, BIT_DOWN1);
+  extChannelEnable(&EXTD1, BIT_PUSH);
+  //chCondObjectInit(&condvar_button);
+#endif
   /*
    * Initializes a serial-over-USB CDC driver.
    */
@@ -345,7 +500,7 @@ int __attribute__((noreturn)) main(void)
 
   //si5351_set_frequency(48001);
   //si5351_set_frequency(567*4); // NHK1
-  set_tune(567); // NHK1
+  set_tune(567000); // NHK1
 
   /*
    * Shell manager initialization.
@@ -356,6 +511,18 @@ int __attribute__((noreturn)) main(void)
    * Creates the blinker thread.
    */
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
+#if 0
+  i2clcd_init();
+  i2clcd_str("FriskSDR");
+  i2clcd_pos(0, 1);
+  i2clcd_str("Hello");
+#endif
+  ui_init();
+
+  /*
+   * Creates the button thread.
+   */
+  chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
 
   /*
    * Normal main() thread activity, spawning shells.
