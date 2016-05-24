@@ -25,9 +25,9 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
     while (1)
     {
     systime_t time = serusbcfg.usbp->state == USB_ACTIVE ? 250 : 500;
-	palClearPad(GPIOC, GPIOC_LED);
+	//palClearPad(GPIOC, GPIOC_LED);
 	chThdSleepMilliseconds(time);
-	palSetPad(GPIOC, GPIOC_LED);
+	//palSetPad(GPIOC, GPIOC_LED);
 	chThdSleepMilliseconds(time);
     }
 }
@@ -90,6 +90,10 @@ static struct {
   int16_t rms[2];
   int16_t ave[2];
   int callback_count;
+
+  int32_t last_counter_value;
+  int32_t interval_cycles;
+  int32_t busy_cycles;
 } stat;
 
 __attribute__ ( ( always_inline ) ) __STATIC_INLINE float _VSQRTF(float op1) {
@@ -103,31 +107,16 @@ int16_t tx_buffer[AUDIO_BUFFER_LEN];
 
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 {
+  int32_t cnt_s = port_rt_get_counter_value();
+  int32_t cnt_e;
   int16_t *p = &rx_buffer[offset];
   int16_t *q = &tx_buffer[offset];
   uint32_t i;
-  int32_t acc0, acc1;
-  int32_t ave0, ave1;
-  int32_t count = n / 2;
   (void)i2sp;
-  acc0 = acc1 = 0;
-  for (i = 0; i < n; i += 2) {
-    acc0 += p[i];
-    acc1 += p[i+1];
-  }
-  ave0 = acc0 / count;
-  ave1 = acc1 / count;
-  acc0 = acc1 = 0;
-  for (i = 0; i < n; i += 2) {
-    acc0 += (p[i] - ave0)*(p[i] - ave0);
-    acc1 += (p[i+1] - ave1)*(p[i+1] - ave1);
-  }
-  stat.rms[0] = sqrt(acc0 / count);
-  stat.rms[1] = sqrt(acc1 / count);
-  stat.ave[0] = ave0;
-  stat.ave[1] = ave1;
+  palSetPad(GPIOC, GPIOC_LED);
   stat.callback_count++;
 
+#if 1
   for (i = 0; i < n; i += 2) {
     int32_t x = p[i];
     int32_t y = p[i+1];
@@ -141,13 +130,22 @@ void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
     //q[i] = x;
     //q[i+1] = y;
   }
+#endif
+
+  cnt_e = port_rt_get_counter_value();
+  stat.interval_cycles = cnt_s - stat.last_counter_value;
+  stat.busy_cycles = cnt_e - cnt_s;
+  stat.last_counter_value = cnt_s;
+
+  palClearPad(GPIOC, GPIOC_LED);
 }
 
 static const I2SConfig i2sconfig = {
   tx_buffer, // TX Buffer
   rx_buffer, // RX Buffer
   AUDIO_BUFFER_LEN,
-  i2s_end_callback,
+  i2s_end_callback, // tx callback
+  NULL, // rx callback
   0, // i2scfgr
   2 // i2spr
 };
@@ -239,11 +237,36 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
 
 static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
 {
+  int16_t *p = &rx_buffer[0];
+  int32_t acc0, acc1;
+  int32_t ave0, ave1;
+  int32_t count = AUDIO_BUFFER_LEN / 2;
+  int i;
   (void)argc;
   (void)argv;
+  acc0 = acc1 = 0;
+  for (i = 0; i < AUDIO_BUFFER_LEN; i += 2) {
+    acc0 += p[i];
+    acc1 += p[i+1];
+  }
+  ave0 = acc0 / count;
+  ave1 = acc1 / count;
+  acc0 = acc1 = 0;
+  for (i = 0; i < AUDIO_BUFFER_LEN; i += 2) {
+    acc0 += (p[i] - ave0)*(p[i] - ave0);
+    acc1 += (p[i+1] - ave1)*(p[i+1] - ave1);
+  }
+  stat.rms[0] = sqrt(acc0 / count);
+  stat.rms[1] = sqrt(acc1 / count);
+  stat.ave[0] = ave0;
+  stat.ave[1] = ave1;
+
   chprintf(chp, "average: %d %d\r\n", stat.ave[0], stat.ave[1]);
   chprintf(chp, "rms: %d %d\r\n", stat.rms[0], stat.rms[1]);
   chprintf(chp, "callback count: %d\r\n", stat.callback_count);
+  chprintf(chp, "interval cycle: %d\r\n", stat.interval_cycles);
+  chprintf(chp, "busy cycle: %d\r\n", stat.busy_cycles);
+  chprintf(chp, "load: %d\r\n", stat.busy_cycles * 100 / stat.interval_cycles);
 }
 
 extern void tlv320aic3204_set_gain(int gain);

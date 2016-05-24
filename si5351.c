@@ -140,12 +140,14 @@ si5351_setupMultisynth(uint8_t     output,
   si5351_write(clkctrl[output], dat);
 }
 
+#define PLLFREQ 800000000L
+
 void
 si5351_set_frequency(int freq)
 {
     // assume PLL1 freq is 800MHz
-    int32_t div = 800000000 / freq;
-    int32_t num = 800000000 - freq * div;
+    int32_t div = PLLFREQ / freq;
+    int32_t num = PLLFREQ - freq * div;
     int32_t denom = freq;
     int32_t k = freq / (1<<20) + 1;
     num /= k;
