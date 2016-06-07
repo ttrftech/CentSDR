@@ -83,9 +83,6 @@ static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
     si5351_set_frequency(freq);
 }
 
-
-#define AUDIO_BUFFER_LEN 4800
-
 static struct {
   int16_t rms[2];
   int16_t ave[2];
@@ -96,14 +93,11 @@ static struct {
   int32_t busy_cycles;
 } stat;
 
-__attribute__ ( ( always_inline ) ) __STATIC_INLINE float _VSQRTF(float op1) {
-  float result;
-  __ASM volatile ("vsqrt.f32 %0,%1" : "=w"(result) : "w"(op1) );
-  return(result);
-}
+int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
+int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
-int16_t rx_buffer[AUDIO_BUFFER_LEN];
-int16_t tx_buffer[AUDIO_BUFFER_LEN];
+signal_process_func_t signal_process = am_demod;
+
 
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 {
@@ -117,6 +111,8 @@ void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
   stat.callback_count++;
 
 #if 1
+  (*signal_process)(p, q, n);
+#else
   for (i = 0; i < n; i += 2) {
     int32_t x = p[i];
     int32_t y = p[i+1];
@@ -143,7 +139,7 @@ void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 static const I2SConfig i2sconfig = {
   tx_buffer, // TX Buffer
   rx_buffer, // RX Buffer
-  AUDIO_BUFFER_LEN,
+  AUDIO_BUFFER_LEN * 2,
   i2s_end_callback, // tx callback
   NULL, // rx callback
   0, // i2scfgr
@@ -181,7 +177,7 @@ static void cmd_i2sstop(BaseSequentialStream *chp, int argc, char *argv[])
 static void tone_generate(int freq)
 {
     int i;
-    for (i = 0; i < AUDIO_BUFFER_LEN/2; i++) {
+    for (i = 0; i < AUDIO_BUFFER_LEN; i++) {
       int16_t x = (int16_t)(sin(2*M_PI * i * freq / FS) * 10000);
       tx_buffer[i*2  ] = x;
       tx_buffer[i*2+1] = x;
@@ -226,7 +222,7 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
   }
 
   i2sStopExchange(&I2SD2);
-  for (i = 0; i < AUDIO_BUFFER_LEN/2; ) {
+  for (i = 0; i < AUDIO_BUFFER_LEN; ) {
     for (j = 0; j < 16; j++, i++) {
       chprintf(chp, "%04x ", 0xffff & (int)buf[i]);
     }
@@ -240,19 +236,19 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   int16_t *p = &rx_buffer[0];
   int32_t acc0, acc1;
   int32_t ave0, ave1;
-  int32_t count = AUDIO_BUFFER_LEN / 2;
+  int32_t count = AUDIO_BUFFER_LEN;
   int i;
   (void)argc;
   (void)argv;
   acc0 = acc1 = 0;
-  for (i = 0; i < AUDIO_BUFFER_LEN; i += 2) {
+  for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
     acc0 += p[i];
     acc1 += p[i+1];
   }
   ave0 = acc0 / count;
   ave1 = acc1 / count;
   acc0 = acc1 = 0;
-  for (i = 0; i < AUDIO_BUFFER_LEN; i += 2) {
+  for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
     acc0 += (p[i] - ave0)*(p[i] - ave0);
     acc1 += (p[i+1] - ave1)*(p[i+1] - ave1);
   }

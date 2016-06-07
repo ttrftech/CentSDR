@@ -27,6 +27,7 @@
 #define set_volume(gain) tlv320aic3204_set_volume(gain)
 #define set_gain(gain) tlv320aic3204_set_gain(gain)
 #define set_frequency(freq) set_tune(freq)
+#define set_modulation(mod) signal_process = demod_funcs[mod]
 
 #define CHANNEL_MAX 10
 
@@ -47,6 +48,13 @@ typedef enum {
 	MOD_USB,
 	MOD_MAX
 } modulation_t;
+
+signal_process_func_t demod_funcs[] = {
+  am_demod,
+  lsb_demod,
+  usb_demod
+};
+
 
 struct {
     enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, MODE_MAX } mode;
@@ -309,6 +317,7 @@ ui_process(void)
 			if ((status & EVT_DOWN) && uistat.modulation > 0) {
 				uistat.modulation--;
 			}
+            set_modulation(uistat.modulation);
 		}
 
 		ui_update();

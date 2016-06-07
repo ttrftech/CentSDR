@@ -1,4 +1,4 @@
-##############################################################################
+#############################################################################
 # Build global options
 # NOTE: Can be overridden externally.
 #
@@ -106,6 +106,10 @@ include $(CHIBIOS)/os/various/shell/shell.mk
 # Define linker script file here
 LDSCRIPT= $(STARTUPLD)/STM32F303xC.ld
 
+CMSIS = CMSIS
+DSPLIBINC = ${CMSIS}/Include
+DSPLIBSRC = ${CMSIS}/DSP_Lib/Source/FilteringFunctions/arm_biquad_cascade_df1_q15.c
+
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CSRC = $(STARTUPSRC) \
@@ -117,9 +121,10 @@ CSRC = $(STARTUPSRC) \
        $(BOARDSRC) \
        $(STREAMSSRC) \
        $(SHELLSRC) \
+       $(DSPLIBSRC) \
        usbcfg.c \
        si5351.c si5351_low.c tlv320aic3204.c lcd.c ui.c \
-       main.c
+	   dsp.c main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -150,6 +155,7 @@ ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) \
+		 $(DSPLIBINC) \
          $(STREAMSINC) $(SHELLINC)
 
 #
@@ -200,7 +206,7 @@ CPPWARN = -Wall -Wextra -Wundef
 #
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS = -DSHELL_CMD_TEST_ENABLED=0 
+UDEFS = -DSHELL_CMD_TEST_ENABLED=0  -DARM_MATH_CM4 -D__FPU_PRESENT -D__FPU_USED
 
 # Define ASM defines here
 UADEFS =

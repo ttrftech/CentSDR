@@ -12,3 +12,20 @@ extern void tlv320aic3204_set_volume(int gain);
 
 extern void ui_init(void);
 extern void ui_process(void);
+
+// 5ms @ 48kHz
+#define AUDIO_BUFFER_LEN 480
+
+extern int16_t rx_buffer[];
+extern int16_t tx_buffer[];
+
+extern int16_t buffer_i[];
+extern int16_t buffer_q[];
+
+typedef void (*signal_process_func_t)(int16_t *src, int16_t *dst, size_t len);
+
+extern signal_process_func_t signal_process;
+
+void am_demod(int16_t *src, int16_t *dst, size_t len);
+void lsb_demod(int16_t *src, int16_t *dst, size_t len);
+void usb_demod(int16_t *src, int16_t *dst, size_t len);
