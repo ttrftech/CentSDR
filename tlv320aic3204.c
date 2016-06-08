@@ -1,6 +1,5 @@
 #include "hal.h"
-
-extern int I2CWrite(int addr, char d0, char d1);
+#include "nanosdr.h"
 
 
 #define REFCLK_8000KHZ
@@ -98,6 +97,18 @@ void tlv320aic3204_set_gain(int gain)
     I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
 }
 
+void tlv320aic3204_set_digital_gain(int gain)
+{
+    if (gain < -24)
+        gain = -24;
+    if (gain > 40)
+        gain = 40;
+
+    I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
+    I2CWrite(AIC3204_ADDR, 0x53, gain & 0x7f); /* Left ADC Channel Volume */
+    I2CWrite(AIC3204_ADDR, 0x54, gain & 0x7f); /* Right ADC Channel Volume */
+}
+
 void tlv320aic3204_set_volume(int gain)
 {
     if (gain > 29)
@@ -111,4 +122,29 @@ void tlv320aic3204_set_volume(int gain)
     I2CWrite(AIC3204_ADDR, 0x10, gain); /* Unmute Left MICPGA, set gain */
     I2CWrite(AIC3204_ADDR, 0x11, gain); /* Unmute Right MICPGA, set gain */
     I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
+}
+
+void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf)
+{
+    int ctrl = 0;
+    if (conf == NULL) {
+      ctrl = 0;
+    } else {
+      ctrl = 0x80
+        | ((conf->target_level & 0x7) << 4) 
+        | (conf->gain_hysteresis & 0x3);
+    }
+    I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
+    I2CWrite(AIC3204_ADDR, 0x56, ctrl); /* Left AGC Control Register */
+    I2CWrite(AIC3204_ADDR, 0x5e, ctrl); /* Right AGC Control Register */
+    if (ctrl == 0)
+      return;
+
+    ctrl = ((conf->attack & 0x1f) << 3) | (conf->attack_scale & 0x7);
+    I2CWrite(AIC3204_ADDR, 0x59, ctrl); /* Left AGC Attack Time */
+    I2CWrite(AIC3204_ADDR, 0x61, ctrl); /* Right AGC Attack Time */
+
+    ctrl = ((conf->decay & 0x1f) << 3) | (conf->decay_scale & 0x7);
+    I2CWrite(AIC3204_ADDR, 0x5a, ctrl); /* Left AGC Decay Time */
+    I2CWrite(AIC3204_ADDR, 0x62, ctrl); /* Right AGC Decay Time */
 }

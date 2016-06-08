@@ -26,8 +26,10 @@
 
 #define set_volume(gain) tlv320aic3204_set_volume(gain)
 #define set_gain(gain) tlv320aic3204_set_gain(gain)
+#define set_dgain(gain) tlv320aic3204_set_digital_gain(gain)
 #define set_frequency(freq) set_tune(freq)
 #define set_modulation(mod) signal_process = demod_funcs[mod]
+#define set_agc(mode) set_agc_mode(mode)
 
 #define CHANNEL_MAX 10
 
@@ -57,7 +59,7 @@ signal_process_func_t demod_funcs[] = {
 
 
 struct {
-    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, MODE_MAX } mode;
+    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, MODE_MAX } mode;
 	int volume;
 	int channel;
 	uint32_t freq;
@@ -65,6 +67,7 @@ struct {
 	int digit; /* 0~5 */
 	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
 	int rfgain;
+	int dgain;
 } uistat;
 
 #define NO_EVENT					0
@@ -200,6 +203,12 @@ ui_update(void)
         i2clcd_str(buf);
         i2clcd_str("dB");
 		break;
+	case DGAIN:
+        i2clcd_str("D:");
+        itoa(uistat.dgain/2, buf, 10);
+        i2clcd_str(buf);
+        i2clcd_str("dB");
+		break;
 	case AGC:
         i2clcd_str("AGC:");
 		i2clcd_str(agc_mode_table[uistat.agcmode]);
@@ -229,13 +238,16 @@ ui_init(void)
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
 	uistat.volume = 10;
-	uistat.rfgain = 40 * 2; // 0 ~ 95
+	uistat.rfgain = 47 * 2; // 0 ~ 95
+	uistat.dgain = 0; // -24 ~ 40
 	uistat.agcmode = AGC_MID;
 	ui_update();
 
 	set_volume(uistat.volume);
 	set_gain(uistat.rfgain);
+	set_dgain(uistat.dgain);
 	set_frequency(uistat.freq);
+    set_agc(uistat.agcmode);
 }
 
 void
@@ -296,20 +308,24 @@ ui_process(void)
 			if (status & EVT_BUTTON_DOWN_LONG) {
               ui_digit();
             }
-#if 0
-#endif
 		} else if (uistat.mode == RFGAIN) {
 			if ((status & EVT_UP) && uistat.rfgain < RFGAIN_MAX-2)
 				uistat.rfgain += 2;
 			if ((status & EVT_DOWN) && uistat.rfgain > 0)
 				uistat.rfgain -= 2;
             set_gain(uistat.rfgain);
+		} else if (uistat.mode == DGAIN) {
+			if ((status & EVT_UP) && uistat.dgain < 40)
+				uistat.dgain += 2;
+			if ((status & EVT_DOWN) && uistat.dgain > -24)
+				uistat.dgain -= 2;
+            set_dgain(uistat.dgain);
 		} else if (uistat.mode == AGC) {
 			if ((status & EVT_DOWN) && uistat.agcmode > 0)
 				uistat.agcmode--;
 			if ((status & EVT_UP) && uistat.agcmode < AGCMODE_MAX-1)
 				uistat.agcmode++;
-			//agc_slowness = agc_slowness_table[uistat.agcmode];
+            set_agc(uistat.agcmode);
 		} else if (uistat.mode == MOD) {
 			if ((status & EVT_UP) && uistat.modulation < MOD_MAX-1) {
 				uistat.modulation++;

@@ -108,31 +108,15 @@ void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
   uint32_t i;
   (void)i2sp;
   palSetPad(GPIOC, GPIOC_LED);
-  stat.callback_count++;
 
-#if 1
   (*signal_process)(p, q, n);
-#else
-  for (i = 0; i < n; i += 2) {
-    int32_t x = p[i];
-    int32_t y = p[i+1];
-    int32_t z;
-#define DCOFFSET 16383
-    x = x + DCOFFSET;
-    y = y + DCOFFSET;
-    z = (int16_t)_VSQRTF((float)(x*x+y*y)) - DCOFFSET;
-    //z = (int16_t)sqrtf(x*x+y*y) - DCOFFSET;
-    q[i] = q[i+1] = z;
-    //q[i] = x;
-    //q[i+1] = y;
-  }
-#endif
 
   cnt_e = port_rt_get_counter_value();
   stat.interval_cycles = cnt_s - stat.last_counter_value;
   stat.busy_cycles = cnt_e - cnt_s;
   stat.last_counter_value = cnt_s;
 
+  stat.callback_count++;
   palClearPad(GPIOC, GPIOC_LED);
 }
 
@@ -148,6 +132,7 @@ static const I2SConfig i2sconfig = {
 
 extern void tlv320aic3204_init(void);
 
+#if 0
 static void cmd_i2sinit(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)chp;
@@ -171,6 +156,7 @@ static void cmd_i2sstop(BaseSequentialStream *chp, int argc, char *argv[])
   (void)argv;
   i2sStopExchange(&I2SD2);
 }
+#endif
 
 #define FS 48000
 
@@ -184,7 +170,7 @@ static void tone_generate(int freq)
     }
 }
 
-static void cmd_audio(BaseSequentialStream *chp, int argc, char *argv[])
+static void cmd_tone(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int freq = 440;
     if (argc > 1) {
@@ -334,6 +320,71 @@ static void cmd_port(BaseSequentialStream *chp, int argc, char *argv[])
     chprintf(chp, "current: %x %d\r\n", palReadPort(GPIOA) & 0b11110010, count);
 }
 
+
+tlv320aic3204_agc_config_t agc_config;
+
+static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    const char *cmd;
+    if (argc == 0) {
+      chprintf(chp, "usage: agc {cmd} [args...]\r\n");
+      chprintf(chp, "\tenable/disable\r\n");
+      chprintf(chp, "\tlevel {0-7}\r\n");
+      chprintf(chp, "\thysteresis {0-3}\r\n");
+      chprintf(chp, "\tattack {0-31} [scale:0-7]\r\n");
+      chprintf(chp, "\tdecay {0-31} [scale:0-7]\r\n");
+      return;
+    }
+
+    cmd = argv[0];
+    if (strncmp(cmd, "di", 2) == 0) {
+      tlv320aic3204_agc_config(NULL);
+    } else if (strncmp(cmd, "en", 2) == 0) {
+      tlv320aic3204_agc_config(&agc_config);
+    } else if (strncmp(cmd, "le", 2) == 0 && argc == 2) {
+      agc_config.target_level = atoi(argv[1]);
+      tlv320aic3204_agc_config(&agc_config);
+    } else if (strncmp(cmd, "hy", 2) == 0 && argc == 2) {
+      agc_config.gain_hysteresis = atoi(argv[1]);
+      tlv320aic3204_agc_config(&agc_config);
+    } else if (strncmp(cmd, "at", 2) == 0 && argc >= 2) {
+      agc_config.attack = atoi(argv[1]);
+      if (argc >= 3)
+        agc_config.attack_scale = atoi(argv[2]);
+      tlv320aic3204_agc_config(&agc_config);
+    } else if (strncmp(cmd, "de", 2) == 0 && argc >= 2) {
+      agc_config.decay = atoi(argv[1]);
+      if (argc >= 3)
+        agc_config.decay_scale = atoi(argv[2]);
+      tlv320aic3204_agc_config(&agc_config);
+    }
+}
+
+enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST };
+
+void set_agc_mode(int mode)
+{
+  switch (mode) {
+  case AGC_MANUAL:
+    tlv320aic3204_agc_config(NULL);
+    return;
+  case AGC_FAST:
+    agc_config.decay = 0;
+    agc_config.decay_scale = 0;
+    break;
+  case AGC_MID:
+    agc_config.decay = 7;
+    agc_config.decay_scale = 0;
+    break;
+  case AGC_SLOW:
+    agc_config.decay = 31;
+    agc_config.decay_scale = 4;
+    break;
+  }
+  tlv320aic3204_agc_config(&agc_config);
+}
+
+
 #define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
 
 static const ShellCommand commands[] =
@@ -342,15 +393,16 @@ static const ShellCommand commands[] =
     { "freq", cmd_freq },
     { "tune", cmd_tune },
     { "ppm", cmd_ppm },
-    { "i2sinit", cmd_i2sinit },
-    { "i2sstart", cmd_i2sstart },
-    { "i2sstop", cmd_i2sstop },
-    { "audio", cmd_audio },
+    //{ "i2sinit", cmd_i2sinit },
+    //{ "i2sstart", cmd_i2sstart },
+    //{ "i2sstop", cmd_i2sstop },
+    { "tone", cmd_tone },
     { "data", cmd_data },
     { "stat", cmd_stat },
     { "gain", cmd_gain },
     { "volume", cmd_volume },
     { "port", cmd_port },
+    { "agc", cmd_agc },
     { NULL, NULL }
 };
 

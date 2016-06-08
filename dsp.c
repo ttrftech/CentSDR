@@ -5,7 +5,7 @@ int16_t buffer_i[AUDIO_BUFFER_LEN];
 int16_t buffer_q[AUDIO_BUFFER_LEN];
 
 
-#define FREQ_SHIFT 8000
+#define FREQ_SHIFT 1300
 
 uint16_t nco1_phase = 0;
 uint16_t nco2_phase = 0;
@@ -290,16 +290,16 @@ cos_sin(uint16_t phase)
 // Bi-Quad IIR Filter state
 q15_t bq_i_state[4 * 3];
 q15_t bq_q_state[4 * 3];
-// 6th order elliptic lowpass filter fc=1300Hz
+// 6th order elliptic lowpass filter fc=6*1300Hz
 q15_t bq_coeffs[] = {
 #if 1
+		  515, 0,   -906,   515, 30977, -14714,
+		 5171, 0, -10087,  5171, 31760, -15739,
+		16384, 0, -32182, 16384, 32165, -16253,
+#else
 		 1186, 0,   1108,  1186, 20883,  -8328,
 		 6829, 0,  -4129,  6829, 17973, -13228,
 		16384, 0, -14411, 16384, 16788, -15733
-#else
-		 651, 0,   -328,   651, 27196, -11823,
-		5592, 0,  -8854,  5592, 27830, -14568,
-	   16384, 0, -27663, 16384, 28264, -16007
 #endif
 };
 
@@ -318,8 +318,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 		uint32_t cossin = cos_sin(nco1_phase);
 		nco1_phase -= phasestep;
 		uint32_t iq = *s++;
-		*bufi++ = __SMLAD(iq, cossin, 0) >> 15;
-		*bufq++ = __SMLSDX(iq, cossin, 0) >> 15;
+		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
+		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
 
 	arm_biquad_cascade_df1_q15(&bq_i, buffer_i, buffer_i, len/2);
@@ -329,9 +329,9 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 	bufq = buffer_q;
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco2_phase);
-		nco2_phase -= phasestep;
+		nco2_phase += phasestep;
 		uint32_t iq = __PKHBT(*bufi++, *bufq++, 16);
-		uint32_t r = __SMLSDX(iq, cossin, 0) >> 15;
+		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
         *d++ = __PKHBT(r, r, 16);
 	}
 }
@@ -352,8 +352,8 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     int32_t y = src[i+1];
     int32_t z;
 #define DCOFFSET 16383
-    x = x + DCOFFSET;
-    y = y + DCOFFSET;
+    x = x/2 + DCOFFSET;
+    y = y/2 + DCOFFSET;
     z = (int16_t)_VSQRTF((float)(x*x+y*y)) - DCOFFSET;
     //z = (int16_t)sqrtf(x*x+y*y) - DCOFFSET;
     dst[i] = dst[i+1] = z;
