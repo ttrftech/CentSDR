@@ -124,7 +124,48 @@ si5351_setupMultisynth(uint8_t     output,
   /* Set the MSx config registers */
   si5351_write(baseaddr,   (P3 & 0x0000FF00) >> 8);
   si5351_write(baseaddr+1, (P3 & 0x000000FF));
-  si5351_write(baseaddr+2, (P1 & 0x00030000) >> 16);	/* ToDo: Add DIVBY4 (>150MHz) and R0 support (<500kHz) later */
+  si5351_write(baseaddr+2, (P1 & 0x00030000) >> 16);
+  si5351_write(baseaddr+3, (P1 & 0x0000FF00) >> 8);
+  si5351_write(baseaddr+4, (P1 & 0x000000FF));
+  si5351_write(baseaddr+5, ((P3 & 0x000F0000) >> 12) | ((P2 & 0x000F0000) >> 16));
+  si5351_write(baseaddr+6, (P2 & 0x0000FF00) >> 8);
+  si5351_write(baseaddr+7, (P2 & 0x000000FF));
+
+  /* Configure the clk control and enable the output */
+  dat = SI5351_CLK_DRIVE_STRENGTH_8MA | SI5351_CLK_INPUT_MULTISYNTH_N;
+  if (pllSource == SI5351_PLL_B)
+    dat |= SI5351_CLK_PLL_SELECT_B;
+  if (num == 0)
+    dat |= SI5351_CLK_INTEGER_MODE;
+  si5351_write(clkctrl[output], dat);
+}
+
+void
+si5351_setupMultisynthDivBy4(uint8_t     output,
+                             uint8_t	   pllSource)
+{
+  /* Get the appropriate starting point for the PLL registers */
+  const uint8_t msreg_base[] = {
+    SI5351_REG_42_MULTISYNTH0,
+    SI5351_REG_50_MULTISYNTH1,
+    SI5351_REG_58_MULTISYNTH2,
+  };
+  uint8_t baseaddr = msreg_base[output];
+  const uint8_t clkctrl[] = {
+    SI5351_REG_16_CLK0_CONTROL,
+    SI5351_REG_17_CLK1_CONTROL,
+    SI5351_REG_18_CLK2_CONTROL
+  };
+  uint8_t dat;
+
+  uint32_t P1 = 0;
+  uint32_t P2 = 0;
+  uint32_t P3 = 1;
+
+  /* Set the MSx config registers */
+  si5351_write(baseaddr,   (P3 & 0x0000FF00) >> 8);
+  si5351_write(baseaddr+1, (P3 & 0x000000FF));
+  si5351_write(baseaddr+2, ((P1 & 0x00030000) >> 16) | SI5351_DIVBY4);
   si5351_write(baseaddr+3, (P1 & 0x0000FF00) >> 8);
   si5351_write(baseaddr+4, (P1 & 0x000000FF));
   si5351_write(baseaddr+5, ((P3 & 0x000F0000) >> 12) | ((P2 & 0x000F0000) >> 16));
@@ -135,15 +176,16 @@ si5351_setupMultisynth(uint8_t     output,
   dat = SI5351_CLK_DRIVE_STRENGTH_2MA | SI5351_CLK_INPUT_MULTISYNTH_N;
   if (pllSource == SI5351_PLL_B)
     dat |= SI5351_CLK_PLL_SELECT_B;
-  if (num == 0)
-    dat |= SI5351_CLK_INTEGER_MODE;
+  dat |= SI5351_CLK_INTEGER_MODE;
   si5351_write(clkctrl[output], dat);
 }
 
-#define PLLFREQ 800000000L
+
+#define XTALFREQ 25000000L
+#define PLLFREQ (XTALFREQ*32)
 
 void
-si5351_set_frequency(int freq)
+si5351_set_frequency_fixedpll(int freq)
 {
     // assume PLL1 freq is 800MHz
     int32_t div = PLLFREQ / freq;
@@ -153,4 +195,65 @@ si5351_set_frequency(int freq)
     num /= k;
     denom /= k;
     si5351_setupMultisynth(0, SI5351_PLL_A, div, num, denom);
+}
+
+void
+si5351_set_frequency_fixedpll2(int freq)
+{
+    // PLL2 freq = 900MHz
+    int32_t div = 900000000L / freq;
+    int32_t num = 900000000L - freq * div;
+    int32_t denom = freq;
+    int32_t k = freq / (1<<20) + 1;
+    num /= k;
+    denom /= k;
+    // 900MHz = XTALFREQ(25MHz) * 36
+    si5351_setupPLL(SI5351_PLL_B, 36, 0, 0);
+    si5351_setupMultisynth(0, SI5351_PLL_B, div, num, denom);
+}
+
+void
+si5351_set_frequency_fixeddiv(int freq, int div)
+{
+    int32_t pll = freq * div;
+    int32_t multi = pll / XTALFREQ;
+    int32_t num = pll - multi * XTALFREQ;
+    int32_t denom = 1000000;
+    int32_t k = XTALFREQ / denom;
+    num /= k;
+    si5351_setupPLL(SI5351_PLL_B, multi, num, denom);
+    si5351_setupMultisynth(0, SI5351_PLL_B, div, 0, 0);
+}
+
+void
+si5351_set_frequency_fixeddiv4(int freq)
+{
+    int32_t pll = freq * 4;
+    int32_t multi = pll / XTALFREQ;
+    int32_t num = pll - multi * XTALFREQ;
+    int32_t denom = 1000000;
+    int32_t k = XTALFREQ / denom;
+    num /= k;
+    si5351_setupPLL(SI5351_PLL_B, multi, num, denom);
+    si5351_setupMultisynthDivBy4(0, SI5351_PLL_B);
+}
+
+/* 
+ * 1~100MHz fixed PLL 800MHz, fractional divider
+ * 100~118MHz fixed PLL 900MHz, fractional divider
+ * 118~190MHz fixed divider 1/4, fractional PLL
+ */
+void
+si5351_set_frequency(int freq)
+{
+  if (freq < 100000000) {
+    si5351_set_frequency_fixedpll(freq);
+  } else if (freq < 118000000) {
+    si5351_set_frequency_fixedpll2(freq);
+    //} else if (freq > 139000000 && freq < 143000000) {
+    //Si5351_set_frequency_fixedpll2(freq);
+    //si5351_set_frequency_fixeddiv(freq, 8);
+  } else {
+    si5351_set_frequency_fixeddiv4(freq);
+  }
 }

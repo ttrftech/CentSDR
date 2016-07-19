@@ -41,7 +41,8 @@ uint32_t channel_table[CHANNEL_MAX] = {
   7100000,
   14100000,
   21100000,
-  28500000
+  28500000,
+  35000000
 };
 
 typedef enum {
@@ -233,8 +234,8 @@ ui_init(void)
     i2clcd_str("FriskSDR");
 
 	uistat.mode = CHANNEL;
-	uistat.channel = 0;
-	uistat.freq = 567000;
+	uistat.channel = 8;
+	uistat.freq = 35000000;//567000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
 	uistat.volume = 10;
