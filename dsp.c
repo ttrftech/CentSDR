@@ -5,12 +5,6 @@ int16_t buffer_i[AUDIO_BUFFER_LEN];
 int16_t buffer_q[AUDIO_BUFFER_LEN];
 
 
-#define FREQ_SHIFT 1300
-
-uint16_t nco1_phase = 0;
-uint16_t nco2_phase = 0;
-int16_t nco_phasestep = 65536L*FREQ_SHIFT/48000;
-
 const int16_t cos_sin_table[256][4] = {
     { -32767,   10,      0, -804 },
     { -32757,   29,   -804, -804 },
@@ -287,24 +281,34 @@ cos_sin(uint16_t phase)
 }
 
 
+uint16_t nco1_phase = 0;
+uint16_t nco2_phase = 0;
+#define SSB_NCO_PHASESTEP (65536L*SSB_FREQ_OFFSET/48000)
+
+
 // Bi-Quad IIR Filter state
 q15_t bq_i_state[4 * 3];
 q15_t bq_q_state[4 * 3];
-// 6th order elliptic lowpass filter fc=6*1300Hz
+// 6th order elliptic lowpass filter fc=1300Hz
 q15_t bq_coeffs[] = {
-#if 1
 		  515, 0,   -906,   515, 30977, -14714,
 		 5171, 0, -10087,  5171, 31760, -15739,
 		16384, 0, -32182, 16384, 32165, -16253,
-#else
-		 1186, 0,   1108,  1186, 20883,  -8328,
-		 6829, 0,  -4129,  6829, 17973, -13228,
-		16384, 0, -14411, 16384, 16788, -15733
-#endif
 };
 
 arm_biquad_casd_df1_inst_q15 bq_i = { 3, bq_i_state, bq_coeffs, 1};
 arm_biquad_casd_df1_inst_q15 bq_q = { 3, bq_q_state, bq_coeffs, 1};
+
+
+// 6th order elliptic lowpass filter fc=6*1300=7800Hz
+q15_t bq_coeffs_am[] = {
+		 1186, 0,   1108,  1186, 20883,  -8328,
+		 6829, 0,  -4129,  6829, 17973, -13228,
+		16384, 0, -14411, 16384, 16788, -15733
+};
+
+arm_biquad_casd_df1_inst_q15 bq_am_i = { 3, bq_i_state, bq_coeffs_am, 1};
+arm_biquad_casd_df1_inst_q15 bq_am_q = { 3, bq_q_state, bq_coeffs_am, 1};
 
 void
 ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
@@ -314,6 +318,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     int32_t *s = __SIMD32(src);
     int32_t *d = __SIMD32(dst);
     uint32_t i;
+
+    // shift frequency
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco1_phase);
 		nco1_phase -= phasestep;
@@ -322,9 +328,11 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
 
+    // apply low pass filter
 	arm_biquad_cascade_df1_q15(&bq_i, buffer_i, buffer_i, len/2);
 	arm_biquad_cascade_df1_q15(&bq_q, buffer_q, buffer_q, len/2);
 
+    // shift frequency inverse
 	bufi = buffer_i;
 	bufq = buffer_q;
     for (i = 0; i < len/2; i++) {
@@ -345,6 +353,42 @@ float _VSQRTF(float op1) {
 
 void
 am_demod(int16_t *src, int16_t *dst, size_t len)
+#ifdef AM_FREQ_OFFSET
+{
+#define PHASESTEP 65536L*AM_FREQ_OFFSET/48000
+
+	q15_t *bufi = buffer_i;
+	q15_t *bufq = buffer_q;
+    int32_t *s = __SIMD32(src);
+    int32_t *d = __SIMD32(dst);
+    uint32_t i;
+    for (i = 0; i < len/2; i++) {
+		uint32_t cossin = cos_sin(nco1_phase);
+		nco1_phase -= PHASESTEP;
+		uint32_t iq = *s++;
+		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
+		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
+	}
+
+    // apply low pass filter
+	arm_biquad_cascade_df1_q15(&bq_am_i, buffer_i, buffer_i, len/2);
+	arm_biquad_cascade_df1_q15(&bq_am_q, buffer_q, buffer_q, len/2);
+
+	bufi = buffer_i;
+	bufq = buffer_q;
+    for (i = 0; i < len/2; i++) {
+      int32_t x = *bufi++;
+      int32_t y = *bufq++;
+      int32_t z;
+#define DCOFFSET 16383
+      x = x/2;
+      y = y/2;
+      z = (int16_t)_VSQRTF((float)(x*x+y*y)) - DCOFFSET;
+      //z = (int16_t)sqrtf(x*x+y*y) - DCOFFSET;
+      *d++ = __PKHBT(z, z, 16);
+	}
+}
+#else
 {
   uint32_t i;
   for (i = 0; i < len; i += 2) {
@@ -352,23 +396,24 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     int32_t y = src[i+1];
     int32_t z;
 #define DCOFFSET 16383
-    x = x/2 + DCOFFSET;
-    y = y/2 + DCOFFSET;
+    x = x/2;
+    y = y/2;
     z = (int16_t)_VSQRTF((float)(x*x+y*y)) - DCOFFSET;
     //z = (int16_t)sqrtf(x*x+y*y) - DCOFFSET;
     dst[i] = dst[i+1] = z;
   }
 }
+#endif
 
 void
 lsb_demod(int16_t *src, int16_t *dst, size_t len)
 {
-  ssb_demod(src, dst, len, -nco_phasestep);
+  ssb_demod(src, dst, len, -SSB_NCO_PHASESTEP);
 }
 
 void
 usb_demod(int16_t *src, int16_t *dst, size_t len)
 {
-  ssb_demod(src, dst, len, nco_phasestep);
+  ssb_demod(src, dst, len, SSB_NCO_PHASESTEP);
 }
 

@@ -42,3 +42,6 @@ void lsb_demod(int16_t *src, int16_t *dst, size_t len);
 void usb_demod(int16_t *src, int16_t *dst, size_t len);
 
 void set_agc_mode(int agcmode);
+
+#define AM_FREQ_OFFSET 10000
+#define SSB_FREQ_OFFSET 1300

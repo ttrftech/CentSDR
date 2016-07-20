@@ -278,12 +278,14 @@ static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_volume(gain);
 }
 
-static int ppm = 0;//28430;
+static int ppm = 28430;
 
 void
 set_tune(int hz)
 {
-  si5351_set_frequency(4*hz + (((4*(int32_t)hz/1000)*ppm)/1000000));
+  hz = hz*4;
+  hz += ((hz/1000)*ppm)/1000000;
+  si5351_set_frequency(hz);
 }
 
 static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
@@ -571,8 +573,8 @@ int __attribute__((noreturn)) main(void)
 
   //si5351_set_frequency(48001);
   //si5351_set_frequency(567*4); // NHK1
-  //set_tune(567000); // NHK1
-  set_tune(35000000);
+  set_tune(567000); // NHK1
+  //set_tune(35000000);
 
   /*
    * Shell manager initialization.

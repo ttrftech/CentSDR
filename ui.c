@@ -58,6 +58,12 @@ signal_process_func_t demod_funcs[] = {
   usb_demod
 };
 
+int modulation_frequency_offset[] = {
+  -AM_FREQ_OFFSET,
+  0,
+  0
+};
+
 
 struct {
     enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, MODE_MAX } mode;
@@ -69,6 +75,7 @@ struct {
 	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
 	int rfgain;
 	int dgain;
+    int freq_offset;
 } uistat;
 
 #define NO_EVENT					0
@@ -228,14 +235,20 @@ ui_update(void)
 }
 
 void
+update_frequency()
+{
+  set_frequency(uistat.freq + modulation_frequency_offset[uistat.modulation]);
+}
+
+void
 ui_init(void)
 {
     i2clcd_init();
     i2clcd_str("FriskSDR");
 
 	uistat.mode = CHANNEL;
-	uistat.channel = 8;
-	uistat.freq = 35000000;//567000;
+	uistat.channel = 0;
+	uistat.freq = 567000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
 	uistat.volume = 10;
@@ -247,9 +260,11 @@ ui_init(void)
 	set_volume(uistat.volume);
 	set_gain(uistat.rfgain);
 	set_dgain(uistat.dgain);
-	set_frequency(uistat.freq);
     set_agc(uistat.agcmode);
+    update_frequency();
 }
+
+
 
 void
 ui_digit(void)
@@ -287,7 +302,7 @@ ui_process(void)
 			if ((status & EVT_DOWN) && uistat.channel > 0)
 				uistat.channel--;
             uistat.freq = channel_table[uistat.channel];
-            set_frequency(uistat.freq);
+            update_frequency();
 		} else if (uistat.mode == VOLUME) {
 			if ((status & EVT_UP) && uistat.volume < VOLUME_MAX)
 				uistat.volume++;
@@ -300,11 +315,11 @@ ui_process(void)
 				step *= 10;
 			if (status & EVT_UP) {
 				uistat.freq += step;
-				set_frequency(uistat.freq);
+                update_frequency();
 			}
 			if (status & EVT_DOWN) {
 				uistat.freq -= step;
-				set_frequency(uistat.freq);
+                update_frequency();
 			}
 			if (status & EVT_BUTTON_DOWN_LONG) {
               ui_digit();
@@ -335,6 +350,7 @@ ui_process(void)
 				uistat.modulation--;
 			}
             set_modulation(uistat.modulation);
+            update_frequency();
 		}
 
 		ui_update();
