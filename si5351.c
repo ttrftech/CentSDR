@@ -158,25 +158,22 @@ si5351_setupMultisynthDivBy4(uint8_t     output,
   };
   uint8_t dat;
 
-  uint32_t P1 = 0;
-  uint32_t P2 = 0;
-  uint32_t P3 = 1;
-
   /* Set the MSx config registers */
-  si5351_write(baseaddr,   (P3 & 0x0000FF00) >> 8);
-  si5351_write(baseaddr+1, (P3 & 0x000000FF));
-  si5351_write(baseaddr+2, ((P1 & 0x00030000) >> 16) | SI5351_DIVBY4);
-  si5351_write(baseaddr+3, (P1 & 0x0000FF00) >> 8);
-  si5351_write(baseaddr+4, (P1 & 0x000000FF));
-  si5351_write(baseaddr+5, ((P3 & 0x000F0000) >> 12) | ((P2 & 0x000F0000) >> 16));
-  si5351_write(baseaddr+6, (P2 & 0x0000FF00) >> 8);
-  si5351_write(baseaddr+7, (P2 & 0x000000FF));
+  si5351_write(baseaddr, 0);
+  si5351_write(baseaddr+1, 1);
+  si5351_write(baseaddr+2, SI5351_DIVBY4);
+  si5351_write(baseaddr+3, 0);
+  si5351_write(baseaddr+4, 0);
+  si5351_write(baseaddr+5, 0);
+  si5351_write(baseaddr+6, 0);
+  si5351_write(baseaddr+7, 0);
 
   /* Configure the clk control and enable the output */
-  dat = SI5351_CLK_DRIVE_STRENGTH_2MA | SI5351_CLK_INPUT_MULTISYNTH_N;
+  dat = SI5351_CLK_DRIVE_STRENGTH_2MA
+    | SI5351_CLK_INPUT_MULTISYNTH_N
+    | SI5351_CLK_INTEGER_MODE;
   if (pllSource == SI5351_PLL_B)
     dat |= SI5351_CLK_PLL_SELECT_B;
-  dat |= SI5351_CLK_INTEGER_MODE;
   si5351_write(clkctrl[output], dat);
 }
 

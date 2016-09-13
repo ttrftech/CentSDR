@@ -295,7 +295,9 @@ ui_process(void)
 	int n;
 	if (status != 0) {
 		if (status & EVT_BUTTON_SINGLE_CLICK) {
-			uistat.mode = (uistat.mode + 1) % MODE_MAX;
+            // enable RFGAIN and DGAIN only when AGC is disabled
+            int mode_max = uistat.agcmode == AGC_MANUAL ? MODE_MAX : RFGAIN;
+			uistat.mode = (uistat.mode + 1) % mode_max;
 		} else if (uistat.mode == CHANNEL) {
 			if ((status & EVT_UP) && uistat.channel < CHANNEL_MAX)
 				uistat.channel++;
