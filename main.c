@@ -560,6 +560,7 @@ int __attribute__((noreturn)) main(void)
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 
+#if 0
   /*
    * I2S Initialize
    */
@@ -568,7 +569,8 @@ int __attribute__((noreturn)) main(void)
   i2sObjectInit(&I2SD2);
   i2sStart(&I2SD2, &i2sconfig);
   i2sStartExchange(&I2SD2);
-
+#endif
+  
   //tone_generate(440);
 
   //si5351_set_frequency(48001);
@@ -591,8 +593,10 @@ int __attribute__((noreturn)) main(void)
   i2clcd_pos(0, 1);
   i2clcd_str("Hello");
 #endif
+#if 0
   ui_init();
-
+#endif
+  
   /*
    * Creates the button thread.
    */

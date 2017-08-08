@@ -178,7 +178,7 @@ si5351_setupMultisynthDivBy4(uint8_t     output,
 }
 
 
-#define XTALFREQ 25000000L
+#define XTALFREQ 26000000L
 #define PLLFREQ (XTALFREQ*32)
 
 void
@@ -191,7 +191,7 @@ si5351_set_frequency_fixedpll(int freq)
     int32_t k = freq / (1<<20) + 1;
     num /= k;
     denom /= k;
-    si5351_setupMultisynth(0, SI5351_PLL_A, div, num, denom);
+    si5351_setupMultisynth(1, SI5351_PLL_A, div, num, denom);
 }
 
 void
@@ -206,7 +206,7 @@ si5351_set_frequency_fixedpll2(int freq)
     denom /= k;
     // 900MHz = XTALFREQ(25MHz) * 36
     si5351_setupPLL(SI5351_PLL_B, 36, 0, 0);
-    si5351_setupMultisynth(0, SI5351_PLL_B, div, num, denom);
+    si5351_setupMultisynth(1, SI5351_PLL_B, div, num, denom);
 }
 
 void
@@ -219,7 +219,7 @@ si5351_set_frequency_fixeddiv(int freq, int div)
     int32_t k = XTALFREQ / denom;
     num /= k;
     si5351_setupPLL(SI5351_PLL_B, multi, num, denom);
-    si5351_setupMultisynth(0, SI5351_PLL_B, div, 0, 0);
+    si5351_setupMultisynth(1, SI5351_PLL_B, div, 0, 0);
 }
 
 void
@@ -232,7 +232,7 @@ si5351_set_frequency_fixeddiv4(int freq)
     int32_t k = XTALFREQ / denom;
     num /= k;
     si5351_setupPLL(SI5351_PLL_B, multi, num, denom);
-    si5351_setupMultisynthDivBy4(0, SI5351_PLL_B);
+    si5351_setupMultisynthDivBy4(1, SI5351_PLL_B);
 }
 
 /* 
