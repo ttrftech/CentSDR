@@ -97,7 +97,7 @@ int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
 signal_process_func_t signal_process = am_demod;
-
+int32_t mode_freq_offset = AM_FREQ_OFFSET;
 
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 {
@@ -278,13 +278,25 @@ static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_volume(gain);
 }
 
-static int ppm = 28430;
+static void cmd_dac(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int value;
+    if (argc != 1) {
+        chprintf(chp, "usage: dac {value(0-4095)}\r\n");
+        //chprintf(chp, "current value: %d\r\n", config.dac_value);
+        return;
+    }
+    value = atoi(argv[0]);
+    //config.dac_value = value;
+    dacPutChannelX(&DACD1, 0, value);
+}
+
+//static int ppm = 28430;
 
 void
 set_tune(int hz)
 {
-  hz = hz*4;
-  hz += ((hz/1000)*ppm)/1000000;
+  hz = hz*4 - mode_freq_offset;
   si5351_set_frequency(hz);
 }
 
@@ -292,22 +304,24 @@ static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int freq;
     if (argc != 1) {
-        chprintf(chp, "usage: tune {frequency(kHz)}\r\n");
+        chprintf(chp, "usage: tune {frequency(Hz)}\r\n");
         return;
     }
     freq = atoi(argv[0]);
     set_tune(freq);
 }
 
+#if 0
 static void cmd_ppm(BaseSequentialStream *chp, int argc, char *argv[])
 {
     if (argc != 1) {
         chprintf(chp, "usage: ppm {value}\r\n");
-        chprintf(chp, "current: %d\r\n", ppm);
+        //chprintf(chp, "current: %d\r\n", ppm);
         return;
     }
     ppm = atoi(argv[0]);
 }
+#endif
 
 #define BIT_PUSH	5
 #define BIT_DOWN0	4
@@ -386,6 +400,26 @@ void set_agc_mode(int mode)
   tlv320aic3204_agc_config(&agc_config);
 }
 
+static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    const char *cmd;
+    if (argc == 0) {
+      chprintf(chp, "usage: mode {am|lsb|usb}\r\n");
+      return;
+    }
+
+    cmd = argv[0];
+    if (strncmp(cmd, "am", 1) == 0) {
+      signal_process = am_demod;
+      mode_freq_offset = AM_FREQ_OFFSET;
+    } else if (strncmp(cmd, "lsb", 1) == 0) {
+      signal_process = lsb_demod;
+      mode_freq_offset = 0;
+    } else if (strncmp(cmd, "usb", 1) == 0) {
+      signal_process = usb_demod;
+      mode_freq_offset = 0;
+    }
+}
 
 #define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
 
@@ -394,7 +428,8 @@ static const ShellCommand commands[] =
     { "reset", cmd_reset },
     { "freq", cmd_freq },
     { "tune", cmd_tune },
-    { "ppm", cmd_ppm },
+    { "dac", cmd_dac },
+    //{ "ppm", cmd_ppm },
     //{ "i2sinit", cmd_i2sinit },
     //{ "i2sstart", cmd_i2sstart },
     //{ "i2sstop", cmd_i2sstop },
@@ -405,6 +440,7 @@ static const ShellCommand commands[] =
     { "volume", cmd_volume },
     { "port", cmd_port },
     { "agc", cmd_agc },
+    { "mode", cmd_mode },
     { NULL, NULL }
 };
 
@@ -519,6 +555,12 @@ static const EXTConfig extconf = {
   }
 };
 
+static DACConfig dac1cfg1 = {
+  //init:         2047U,
+  init:         1080U,
+  datamode:     DAC_DHRM_12BIT_RIGHT
+};
+
 /*
  * Application entry point.
  */
@@ -533,6 +575,13 @@ int __attribute__((noreturn)) main(void)
    */
   halInit();
   chSysInit();
+
+  /*
+   * Starting DAC1 driver, setting up the output pin as analog as suggested
+   * by the Reference Manual.
+   */
+  //dac1cfg1.init = config.dac_value;
+  dacStart(&DACD1, &dac1cfg1);
 
   i2cStart(&I2CD1, &i2ccfg);
 #if 0
@@ -560,7 +609,7 @@ int __attribute__((noreturn)) main(void)
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 
-#if 0
+#if 1
   /*
    * I2S Initialize
    */
