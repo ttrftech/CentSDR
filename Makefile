@@ -125,6 +125,7 @@ CSRC = $(STARTUPSRC) \
        $(DSPLIBSRC) \
        usbcfg.c \
        si5351.c si5351_low.c tlv320aic3204.c lcd.c ui.c \
+	   ili9341.c numfont20x24.c Font5x7.c \
 	   dsp.c main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global

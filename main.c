@@ -628,6 +628,19 @@ int __attribute__((noreturn)) main(void)
   //set_tune(35000000);
 
   /*
+   * SPI LCD Initialize
+   */
+  ili9341_init();
+
+  ili9341_test(4);
+  ili9341_test(3);
+
+  /*
+   * Initialize display
+   */
+  //disp_init();
+  
+  /*
    * Shell manager initialization.
    */
   shellInit();
@@ -649,7 +662,7 @@ int __attribute__((noreturn)) main(void)
   /*
    * Creates the button thread.
    */
-  chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
+  //chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
 
   /*
    * Normal main() thread activity, spawning shells.

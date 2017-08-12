@@ -45,3 +45,41 @@ void set_agc_mode(int agcmode);
 
 #define AM_FREQ_OFFSET 10000
 #define SSB_FREQ_OFFSET 1300
+
+// font
+
+extern const uint16_t x5x7_bits [];
+extern const uint32_t numfont20x24[][24];
+
+#define S_PI    "\034"
+#define S_MICRO "\035"
+#define S_OHM   "\036"
+#define S_DEGREE "\037"
+#define S_RARROW "\033"
+
+/*
+ * ili9341.c
+ */
+#define RGB565(b,r,g)     ( (((b)<<8)&0xfc00) | (((r)<<2)&0x03e0) | (((g)>>3)&0x001f) )
+
+typedef struct {
+	uint16_t width;
+	uint16_t height;
+	uint16_t scaley;
+	uint16_t slide;
+	const uint32_t *bitmap;
+} font_t;
+
+extern const font_t NF20x24;
+
+extern uint16_t spi_buffer[1024];
+
+void ili9341_init(void);
+void ili9341_test(int mode);
+void ili9341_bulk(int x, int y, int w, int h);
+void ili9341_fill(int x, int y, int w, int h, int color);
+void ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg);
+void ili9341_drawstring_5x7(const char *str, int x, int y, uint16_t fg, uint16_t bg);
+void ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint16_t bg);
+
+

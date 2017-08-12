@@ -129,7 +129,7 @@
                                      PIN_MODE_ALTERNATE(GPIOA_USB_DP) |  \
                                      PIN_MODE_ALTERNATE(GPIOA_JTMS) |      \
                                      PIN_MODE_ALTERNATE(GPIOA_JTCK) |      \
-                                     PIN_MODE_INPUT(15))
+                                     PIN_MODE_OUTPUT(15))
 #define VAL_GPIOA_OTYPER            (PIN_OTYPE_PUSHPULL(0U) |       \
                                      PIN_OTYPE_PUSHPULL(1U) |       \
                                      PIN_OTYPE_PUSHPULL(GPIOA_USART2_TX) |   \
@@ -230,8 +230,8 @@
                                      PIN_MODE_ALTERNATE(GPIOB_SPI3_SCK) | \
                                      PIN_MODE_ALTERNATE(GPIOB_SPI3_MISO) | \
                                      PIN_MODE_ALTERNATE(GPIOB_SPI3_MOSI) | \
-                                     PIN_MODE_INPUT(6) |           \
-                                     PIN_MODE_INPUT(7) |           \
+                                     PIN_MODE_OUTPUT(6) |           \
+                                     PIN_MODE_OUTPUT(7) |           \
                                      PIN_MODE_ALTERNATE(GPIOB_I2C1_SCL) | \
                                      PIN_MODE_ALTERNATE(GPIOB_I2C1_SDA) | \
                                      PIN_MODE_INPUT(10) |          \
