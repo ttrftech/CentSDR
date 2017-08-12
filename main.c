@@ -376,8 +376,6 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
-enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST };
-
 void set_agc_mode(int mode)
 {
   switch (mode) {
@@ -635,11 +633,12 @@ int __attribute__((noreturn)) main(void)
   ili9341_test(4);
   ili9341_test(3);
 
+#if 0
   /*
    * Initialize display
    */
-  //disp_init();
-  
+  disp_init();
+#endif
   /*
    * Shell manager initialization.
    */

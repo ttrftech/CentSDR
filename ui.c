@@ -45,13 +45,6 @@ uint32_t channel_table[CHANNEL_MAX] = {
   35000000
 };
 
-typedef enum {
-	MOD_AM,
-	MOD_LSB,
-	MOD_USB,
-	MOD_MAX
-} modulation_t;
-
 signal_process_func_t demod_funcs[] = {
   am_demod,
   lsb_demod,
@@ -63,20 +56,6 @@ int modulation_frequency_offset[] = {
   0,
   0
 };
-
-
-struct {
-    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, MODE_MAX } mode;
-	int volume;
-	int channel;
-	uint32_t freq;
-	modulation_t modulation;
-	int digit; /* 0~5 */
-	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
-	int rfgain;
-	int dgain;
-    int freq_offset;
-} uistat;
 
 #define NO_EVENT					0
 #define EVT_BUTTON_SINGLE_CLICK		0x01

@@ -279,6 +279,14 @@ void ili9341_bulk(int x, int y, int w, int h)
 }
 #endif
 
+
+void
+ili9341_draw_bitmap(int x, int y, int w, int h, uint16_t *bitmap)
+{
+  memcpy((void*)spi_buffer, (void*)bitmap, w * h * 2);
+  ili9341_bulk(x, y, w, h);
+}
+
 void
 ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg)
 {
@@ -343,9 +351,10 @@ ili9341_line(int x0, int y0, int x1, int y1, uint16_t fg)
 }
 
 
-const font_t NF20x24 = { 20, 24, 1, 24, (const uint32_t *)numfont20x24 };
-//const font_t NF32x24 = { 32, 24, 1, 24, (const uint32_t *)numfont32x24 };
-//const font_t NF32x48 = { 32, 48, 2, 24, (const uint32_t *)numfont32x24 };
+const font_t NF20x24 = { 20, 24, 1, 24, 1, (const uint32_t *)numfont20x24 };
+const font_t NF32x24 = { 32, 24, 1, 24, 1, (const uint32_t *)numfont32x24 };
+const font_t NF32x48 = { 32, 48, 2, 24, 1, (const uint32_t *)numfont32x24 };
+const font_t ICON48x20 = { 48, 20, 1, 40, 2, (const uint32_t *)icons48x20 };
 
 void
 ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint16_t bg)
@@ -367,8 +376,27 @@ ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint
     ili9341_bulk(x, y, font->width, font->height);
 }
 
+void
+ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, uint16_t fg, uint16_t bg)
+{
+  while (*str) {
+    char c = *str++;
+    if (c >= '0' && c <= '9')
+      ili9341_drawfont(c - '0', font, x, y, fg, bg);
+    else if (c > 0 && c < 7)
+      ili9341_drawfont(c + 9, font, x, y, fg, bg);
+    else if (c == '.')
+      ili9341_drawfont(10, font, x, y, fg, bg);
+    else if (c == '-')
+      ili9341_drawfont(11, font, x, y, fg, bg);
+    else
+      ili9341_fill(x, y, font->width, font->height, bg);
+    x += font->width;
+  }
+}
+
 #if 1
-const uint16_t colormap[] = {
+static const uint16_t colormap[] = {
   RGB565(255,0,0), RGB565(0,255,0), RGB565(0,0,255),
   RGB565(255,255,0), RGB565(0,255,255), RGB565(255,0,255)
 };

@@ -50,6 +50,8 @@ void set_agc_mode(int agcmode);
 
 extern const uint16_t x5x7_bits [];
 extern const uint32_t numfont20x24[][24];
+extern const uint32_t numfont32x24[][24];
+extern const uint32_t icons48x20[][20*2];
 
 #define S_PI    "\034"
 #define S_MICRO "\035"
@@ -67,10 +69,14 @@ typedef struct {
 	uint16_t height;
 	uint16_t scaley;
 	uint16_t slide;
+	uint16_t stlide;
 	const uint32_t *bitmap;
 } font_t;
 
 extern const font_t NF20x24;
+extern const font_t NF32x24;
+extern const font_t NF32x48;
+extern const font_t ICON48x20;
 
 extern uint16_t spi_buffer[1024];
 
@@ -78,8 +84,45 @@ void ili9341_init(void);
 void ili9341_test(int mode);
 void ili9341_bulk(int x, int y, int w, int h);
 void ili9341_fill(int x, int y, int w, int h, int color);
+void ili9341_draw_bitmap(int x, int y, int w, int h, uint16_t *bitmap);
 void ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg);
 void ili9341_drawstring_5x7(const char *str, int x, int y, uint16_t fg, uint16_t bg);
 void ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint16_t bg);
+void ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, uint16_t fg, uint16_t bg);
 
+
+/*
+ * display.c
+ */
+
+void disp_init(void);
+void disp_process(void);
+
+/*
+ * ui.c
+ */
+typedef enum {
+	MOD_AM,
+	MOD_LSB,
+	MOD_USB,
+	MOD_MAX
+} modulation_t;
+
+typedef struct {
+    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, SPDISP, MODE_MAX } mode;
+	int volume;
+	int channel;
+	uint32_t freq;
+	modulation_t modulation;
+	int digit; /* 0~5 */
+	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
+	int rfgain;
+	int dgain;
+    int freq_offset;
+	enum { SPDISP_CAP0, SPDISP_CAP, SPDISP_CIC, SPDISP_FIR, SPDISP_IIR, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
+	int tp;
+	int debugmode;
+} uistat_t;
+
+extern uistat_t uistat;
 
