@@ -44,6 +44,7 @@ void usb_demod(int16_t *src, int16_t *dst, size_t len);
 void set_agc_mode(int agcmode);
 
 #define AM_FREQ_OFFSET 10000
+//#define AM_FREQ_OFFSET 0
 #define SSB_FREQ_OFFSET 1300
 
 // font
@@ -62,14 +63,14 @@ extern const uint32_t icons48x20[][20*2];
 /*
  * ili9341.c
  */
-#define RGB565(b,r,g)     ( (((b)<<8)&0xfc00) | (((r)<<2)&0x03e0) | (((g)>>3)&0x001f) )
+#define RGB565(b,g,r)     ( (((r)<<8)&0xf800) | (((g)<<2)&0x07e0) | (((b)>>3)&0x001f) )
 
 typedef struct {
 	uint16_t width;
 	uint16_t height;
 	uint16_t scaley;
 	uint16_t slide;
-	uint16_t stlide;
+	uint16_t stride;
 	const uint32_t *bitmap;
 } font_t;
 
@@ -78,7 +79,7 @@ extern const font_t NF32x24;
 extern const font_t NF32x48;
 extern const font_t ICON48x20;
 
-extern uint16_t spi_buffer[1024];
+extern uint16_t spi_buffer[];
 
 void ili9341_init(void);
 void ili9341_test(int mode);
@@ -97,14 +98,15 @@ void ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, 
 
 void disp_init(void);
 void disp_process(void);
+void disp_fetch_samples(void);
 
 /*
  * ui.c
  */
 typedef enum {
-	MOD_AM,
 	MOD_LSB,
 	MOD_USB,
+	MOD_AM,
 	MOD_MAX
 } modulation_t;
 

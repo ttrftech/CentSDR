@@ -457,43 +457,11 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
     chRegSetThreadName("button");
     while (1)
     {
-      ui_process();
-      chThdSleepMilliseconds(100);
+      disp_process();
+      //ui_process();
+      //chThdSleepMilliseconds(100);
+      chThdSleepMilliseconds(10);
     }
-#if 0
-    int prev = palReadPort(GPIOA) & 0b11110010;
-    while (1)
-    {
-      int updated = 0;
-      int curr = palReadPort(GPIOA) & 0b11110010;
-#define BTN(bit)   ((curr ^ prev) & (1<<(bit))) && ((curr & (1<<(bit))) == 0)
-      if (BTN(BIT_PUSH)) {
-        count = 0; updated = 1;
-      }
-      if (BTN(BIT_UP0)) {
-        count++; updated = 1;
-      }
-      if (BTN(BIT_UP1)) {
-        count+=10; updated = 1;
-      }
-      if (BTN(BIT_DOWN0)) {
-        count--; updated = 1;
-      }
-      if (BTN(BIT_DOWN1)) {
-        count-=10; updated = 1;
-      }
-
-      if (updated) {
-        char buf[16];
-        itoa(count, buf, 10);
-        i2clcd_pos(0, 1);
-        i2clcd_str(buf);
-        i2clcd_str("        ");
-      }
-      prev = curr;
-      chThdSleepMilliseconds(100);
-    }
-#endif
 }
 
 void ext_callback(EXTDriver *extp, expchannel_t channel)
@@ -633,7 +601,7 @@ int __attribute__((noreturn)) main(void)
   ili9341_test(4);
   ili9341_test(3);
 
-#if 0
+#if 1
   /*
    * Initialize display
    */
@@ -654,14 +622,14 @@ int __attribute__((noreturn)) main(void)
   i2clcd_pos(0, 1);
   i2clcd_str("Hello");
 #endif
-#if 0
+#if 1
   ui_init();
 #endif
   
   /*
    * Creates the button thread.
    */
-  //chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
+  chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
 
   /*
    * Normal main() thread activity, spawning shells.

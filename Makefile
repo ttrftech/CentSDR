@@ -109,10 +109,11 @@ LDSCRIPT= $(STARTUPLD)/STM32F303xC.ld
 
 CMSIS = CMSIS
 DSPLIBINC = ${CMSIS}/Include
-DSPLIBSRC = ${CMSIS}/DSP_Lib/Source/FilteringFunctions/arm_biquad_cascade_df1_q15.c
-#        ${CMSIS}/DSP_Lib/Source/TransformFunctions/arm_cfft_radix4_init_q31.c \
-#        ${CMSIS}/DSP_Lib/Source/TransformFunctions/arm_cfft_radix4_q31.c \
-#        ${CMSIS}/DSP_Lib/Source/CommonTables/arm_common_tables.c
+DSPLIBSRC = ${CMSIS}/DSP_Lib/Source/FilteringFunctions/arm_biquad_cascade_df1_q15.c \
+        ${CMSIS}/DSP_Lib/Source/TransformFunctions/arm_cfft_radix4_init_q31.c \
+        ${CMSIS}/DSP_Lib/Source/TransformFunctions/arm_cfft_radix4_q31.c \
+        ${CMSIS}/DSP_Lib/Source/TransformFunctions/arm_bitreversal.c \
+        ${CMSIS}/DSP_Lib/Source/CommonTables/arm_common_tables.c
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.

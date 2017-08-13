@@ -222,19 +222,20 @@ update_frequency()
 void
 ui_init(void)
 {
+#if 0
     i2clcd_init();
     i2clcd_str("FriskSDR");
-
+#endif
 	uistat.mode = CHANNEL;
 	uistat.channel = 0;
 	uistat.freq = 567000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
-	uistat.volume = 10;
-	uistat.rfgain = 47 * 2; // 0 ~ 95
+	uistat.volume = 8;
+	uistat.rfgain = 60; // 0 ~ 95
 	uistat.dgain = 0; // -24 ~ 40
-	uistat.agcmode = AGC_MID;
-	ui_update();
+	uistat.agcmode = AGC_MANUAL; //AGC_MID;
+	//ui_update();
 
 	set_volume(uistat.volume);
 	set_gain(uistat.rfgain);

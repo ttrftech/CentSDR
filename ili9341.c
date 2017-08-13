@@ -28,7 +28,7 @@
 #define DC_CMD			palClearPad(GPIOB, 7)
 #define DC_DATA			palSetPad(GPIOB, 7)
 
-uint16_t spi_buffer[1024];
+uint16_t spi_buffer[4096];
 
 void
 ssp_wait(void)
@@ -362,14 +362,17 @@ ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint
 	uint16_t *buf = spi_buffer;
 	uint32_t bits;
 	const uint32_t *bitmap = &font->bitmap[font->slide * ch];
-	int c, r, j;
+	int c, r, j, b;
 
-	for (c = 0; c < font->slide; c++) {
+	for (c = 0; c < font->slide; c += font->stride) {
 		for (j = 0; j < font->scaley; j++) {
-			bits = bitmap[c];
-			for (r = 0; r < font->width; r++) {
-				*buf++ = (0x80000000UL & bits) ? fg : bg;
-				bits <<= 1;
+			int cc = c;
+			for (r = 0; r < font->width;) {
+				bits = bitmap[cc++];
+				for (b = 0; b < 32 && r < font->width; b++,r++) {
+					*buf++ = (0x80000000UL & bits) ? fg : bg;
+					bits <<= 1;
+				}
 			}
 		}
 	}

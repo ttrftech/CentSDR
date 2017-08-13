@@ -353,7 +353,7 @@ float _VSQRTF(float op1) {
 
 void
 am_demod(int16_t *src, int16_t *dst, size_t len)
-#ifdef AM_FREQ_OFFSET
+#if defined(AM_FREQ_OFFSET) && AM_FREQ_OFFSET
 {
 #define PHASESTEP 65536L*AM_FREQ_OFFSET/48000
 
@@ -369,6 +369,7 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
+    disp_fetch_samples();
 
     // apply low pass filter
 	arm_biquad_cascade_df1_q15(&bq_am_i, buffer_i, buffer_i, len/2);
