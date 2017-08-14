@@ -134,6 +134,8 @@ int btn_check(void)
 int16_t agc_slowness_table[AGCMODE_MAX] = {
 		-1, 10, 5, 1
 };
+
+#if 0
 const char *agc_mode_table[AGCMODE_MAX] = {
 		"OFF", "Slow", "Med", "Fast"
 };
@@ -200,18 +202,13 @@ ui_update(void)
 		i2clcd_cmd(0x0c); // disable show-cursor flag
 	}
 }
+#endif
 
 void
 update_frequency(void)
 {
   set_tune(uistat.freq);
 }
-
-
-
-
-
-
 
 
 int enc_status = 0;

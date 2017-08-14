@@ -398,7 +398,7 @@ ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, uint1
   }
 }
 
-#if 1
+#if 0
 static const uint16_t colormap[] = {
   RGB565(255,0,0), RGB565(0,255,0), RGB565(0,0,255),
   RGB565(255,255,0), RGB565(0,255,255), RGB565(255,0,255)

@@ -550,9 +550,8 @@ int __attribute__((noreturn)) main(void)
    * SPI LCD Initialize
    */
   ili9341_init();
-
-  ili9341_test(4);
-  ili9341_test(3);
+  //ili9341_test(4);
+  //ili9341_test(3);
 
 #if 1
   /*
