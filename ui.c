@@ -28,7 +28,6 @@
 #define set_volume(gain) tlv320aic3204_set_volume(gain)
 #define set_gain(gain) tlv320aic3204_set_gain(gain)
 #define set_dgain(gain) tlv320aic3204_set_digital_gain(gain)
-#define set_frequency(freq) set_tune(freq)
 #define set_modulation(mod) signal_process = demod_funcs[mod]
 #define set_agc(mode) set_agc_mode(mode)
 
@@ -50,15 +49,9 @@ uint32_t channel_table[CHANNEL_MAX] = {
 };
 
 signal_process_func_t demod_funcs[] = {
-  am_demod,
   lsb_demod,
-  usb_demod
-};
-
-int modulation_frequency_offset[] = {
-  -AM_FREQ_OFFSET,
-  0,
-  0
+  usb_demod,
+  am_demod,
 };
 
 #define NO_EVENT					0
@@ -79,13 +72,21 @@ int modulation_frequency_offset[] = {
 #define BIT_ENCODER1	2
 
 static uint16_t last_button = 0;
+static uint16_t button_event_inhibited = 0;
 static uint32_t last_button_down_ticks;
 //static uint8_t dragged = 0; // encoder changed while button pressed
+
 
 int
 read_buttons(void)
 {
   return (palReadPort(GPIOA) & 0x1);
+}
+
+void
+inhibit_button_event(void)
+{
+  button_event_inhibited = 1;
 }
 
 int btn_check(void)
@@ -98,7 +99,11 @@ int btn_check(void)
 		if (ticks >= last_button_down_ticks + BUTTON_DEBOUNCE_TICKS) {
             if (!(cur_button & (1<<BIT_PUSH))) {
 				// button released
+              if (button_event_inhibited) {
+                button_event_inhibited = 0;
+              } else {
                 status |= EVT_BUTTON_SINGLE_CLICK;
+              }
 			} else {
 				// button pushed
                 if (ticks < last_button_down_ticks + BUTTON_DOUBLE_TICKS) {
@@ -199,7 +204,7 @@ ui_update(void)
 void
 update_frequency(void)
 {
-  set_frequency(uistat.freq + modulation_frequency_offset[uistat.modulation]);
+  set_tune(uistat.freq);
 }
 
 
@@ -225,7 +230,6 @@ void ext_callback(EXTDriver *extp, expchannel_t channel)
 {
     (void)extp;
     int cur = palReadPort(GPIOB);
-#if 1
     const int trans_tbl[4][4] = {
       /*falling A */  /*rising A  */  /*falling B */  /*rising B  */
       { 0, 0, 3, 3 }, { 1, 1, 2, 2 }, { 0, 1, 1, 0 }, { 3, 2, 2, 3 }
@@ -238,52 +242,13 @@ void ext_callback(EXTDriver *extp, expchannel_t channel)
     if (enc_status == 3 && s == 2)
       enc_count++;
     enc_status = trans_tbl[s][enc_status];
-#else
-    switch (enc_status) {
-    case 0:
-      if (channel == 1 && (cur & (1<<1)))
-        enc_status = 1;
-      if (channel == 2 && (cur & (1<<2))) {
-        enc_status = 3;
-        enc_count++;
-      }
-      break;
-    case 1:
-      if (channel == 2 && (cur & (1<<2)))
-        enc_status = 2;
-      if (channel == 1 && !(cur & (1<<1)))
-        enc_status = 0;
-      break;
-    case 2:
-      if (channel == 1 && !(cur & (1<<1)))
-        enc_status = 3;
-      if (channel == 2 && !(cur & (1<<2)))
-        enc_status = 1;
-      break;
-    case 3:
-      if (channel == 2 && !(cur & (1<<2))) {
-        enc_status = 0;
-        enc_count--;
-      }
-      if (channel == 1 && (cur & (1<<1)))
-        enc_status = 2;
-      break;
-    }
-#endif
 #if 0
     if (channel == 0) {
       enc_count = 0;
     }
 #endif
-#if 0
-    BaseSequentialStream *chp = (BaseSequentialStream *)&SDU1;
-    if (SDU1.config->usbp->state == USB_ACTIVE) {
-      chprintf(chp, "EXTI interrupt: %d\r\n", channel);
-    }
-#endif
 }
 
-#if 1
 static const EXTConfig extconf = {
   {
     { 0, NULL }, //{ EXT_MODE_GPIOA | EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART, ext_callback },
@@ -320,8 +285,6 @@ static const EXTConfig extconf = {
     { 0, NULL }
   }
 };
-#endif
-
 
 void
 ui_init(void)
@@ -353,34 +316,9 @@ ui_init(void)
     update_frequency();
 }
 
-
-
-void
-ui_digit(void)
-{
-    int count = 0;
-    while (TRUE) {
-        int status = btn_check();
-        if (status & EVT_BUTTON_SINGLE_CLICK)
-            break;
-        if (status & EVT_UP && uistat.digit < 7)
-            uistat.digit++;
-        if (status & EVT_DOWN && uistat.digit > 0)
-            uistat.digit--;
-        if (count++ % 4 < 2) {
-            //i2clcd_cmd(0x0e); // enable show-cursor flag
-            //i2clcd_pos(7 - uistat.digit, 1);
-        } else {
-            //i2clcd_cmd(0x0c); // disable show-cursor flag
-        }
-        chThdSleepMilliseconds(100);
-    }
-}
-
-
 static int minmax(int x, int min, int max)
 {
-  if (x > max)
+  if (x >= max)
     return max - 1;
   if (x < min)
     return min;
@@ -408,14 +346,24 @@ ui_process(void)
         uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
         set_volume(uistat.volume);
       } else if (uistat.mode == FREQ) {
-        int32_t step = 1;
-        for (n = uistat.digit; n > 0; n--)
-          step *= 10;
-        uistat.freq += step * tick;
-        update_frequency();
-        if (status & EVT_BUTTON_DOWN_LONG) {
-          ui_digit();
+
+        if (read_buttons() == 0) {
+          int32_t step = 1;
+          for (n = uistat.digit; n > 0; n--)
+            step *= 10;
+          uistat.freq += step * tick;
+          update_frequency();
+        } else {
+          // button pressed
+          if (tick != 0) {
+            if (tick < 0 && uistat.digit < 7)
+              uistat.digit++;
+            if (tick > 0 && uistat.digit > 0)
+              uistat.digit--;
+            inhibit_button_event();
+          }
         }
+        
       } else if (uistat.mode == RFGAIN) {
         uistat.rfgain = minmax(uistat.rfgain + tick, 0, RFGAIN_MAX);
         set_gain(uistat.rfgain);
@@ -434,8 +382,10 @@ ui_process(void)
         }
         set_modulation(uistat.modulation);
         update_frequency();
+      } else if (uistat.mode == SPDISP) {
+        uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, 2);
       }
-
+      
       //ui_update();
       disp_update();
 	}

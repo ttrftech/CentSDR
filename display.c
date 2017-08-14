@@ -376,7 +376,7 @@ struct {
           // sps, off, stride, gain,   origin, step, base, unit
 		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
 		{ tx_buffer, NULL, AUDIO_BUFFER_LEN,
-		  { 48000,    0, 1, 0,	         0, 36, 0, 1, "kHz" } }
+		  { 48000,    0, 1, 0,	         0, 43, 0, 2, "kHz" } }
 };
 
 // 320pixel = 1024pt = 48kHz
@@ -662,12 +662,16 @@ draw_freq(void)
 	for (i = 0; i < 8; i++) {
 		int8_t c = str[i] - '0';
 		uint16_t fg = 0xffff;
-		if (UISTAT->mode == FREQ && UISTAT->digit == 7-i)
+        int focused = FALSE;
+		if (UISTAT->mode == FREQ && UISTAT->digit == 7-i) {
 			fg = 0xfe40;
-
+            focused = TRUE;
+        }
 		if (c >= 0 && c <= 9)
 			ili9341_drawfont(c, &NF32x48, x, 0, fg, bg);
-		else
+		else if (focused)
+            ili9341_drawfont(0, &NF32x48, x, 0, fg, bg);
+        else
 			ili9341_fill(x, 0, 32, 48, bg);
 		x += 32;
 
