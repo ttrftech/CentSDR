@@ -23,6 +23,7 @@
 #include "nanosdr.h"
 #include "si5351.h"
 #include <stdlib.h>
+#include <string.h>
 
 #define set_volume(gain) tlv320aic3204_set_volume(gain)
 #define set_gain(gain) tlv320aic3204_set_gain(gain)
@@ -63,39 +64,38 @@ int modulation_frequency_offset[] = {
 #define EVT_BUTTON_DOWN_LONG		0x04
 #define EVT_UP					0x10
 #define EVT_DOWN				0x20
+#define EVT_PUSH_UP				0x30
+#define EVT_PUSH_DOWN			0x40
 
 #define BUTTON_DOWN_LONG_TICKS		8000
 #define BUTTON_DOUBLE_TICKS			500
 #define BUTTON_DEBOUNCE_TICKS		10
 
-#define BIT_PUSH	5
-#define BIT_DOWN0	4
-#define BIT_DOWN1	1
-#define BIT_UP0 	7
-#define BIT_UP1 	6
+#define BIT_PUSH	0
+#define BIT_ENCODER0	1
+#define BIT_ENCODER1	2
 
-#define READ_PORT() palReadPort(GPIOA)
-#define BUTTON_MASK 0b11110010
-
-static uint16_t last_button = 0b11110010;
+static uint16_t last_button = 0;
 static uint32_t last_button_down_ticks;
-static uint8_t inhibit_until_release = FALSE;
+static uint8_t dragged = 0; // encoder changed while button pressed
+
+int
+read_buttons(void)
+{
+  return (palReadPort(GPIOA) & 0x1) | (palReadPort(GPIOB) & 0x6);
+}
 
 int btn_check(void)
 {
-    int cur_button = READ_PORT() & BUTTON_MASK;
+    int cur_button = read_buttons();
 	int changed = last_button ^ cur_button;
 	int status = 0;
     uint32_t ticks = chVTGetSystemTime();
 	if (changed & (1<<BIT_PUSH)) {
 		if (ticks >= last_button_down_ticks + BUTTON_DEBOUNCE_TICKS) {
-            if (cur_button & (1<<BIT_PUSH)) {
+            if (!(cur_button & (1<<BIT_PUSH))) {
 				// button released
                 status |= EVT_BUTTON_SINGLE_CLICK;
-                if (inhibit_until_release) {
-                    status = 0;
-                    inhibit_until_release = FALSE;
-                }
 			} else {
 				// button pushed
                 if (ticks < last_button_down_ticks + BUTTON_DOUBLE_TICKS) {
@@ -107,31 +107,30 @@ int btn_check(void)
 		}
 	} else {
 		// button unchanged
-		if (!(cur_button & (1<<BIT_PUSH))
+        if ((cur_button & (1<<BIT_PUSH))
 			&& ticks >= last_button_down_ticks + BUTTON_DOWN_LONG_TICKS) {
 			status |= EVT_BUTTON_DOWN_LONG;
-            inhibit_until_release = TRUE;
 		}
 	}
 
-	if ((cur_button & (1<<BIT_UP1)) == 0) {
-        if (changed & (1<<BIT_UP1)) {
-            status |= EVT_UP;
-            last_button_down_ticks = ticks;
-        }
-        if (ticks >= last_button_down_ticks + BUTTON_DOWN_LONG_TICKS) {
-            status |= EVT_UP;
-        }
-    }
-	if ((cur_button & (1<<BIT_DOWN1)) == 0) {
-        if (changed & (1<<BIT_DOWN1)) {
-            status |= EVT_DOWN;
-            last_button_down_ticks = ticks;
-        }
-        if (ticks >= last_button_down_ticks + BUTTON_DOWN_LONG_TICKS) {
-            status |= EVT_DOWN;
-        }
-    }
+	if ((changed & (1<<BIT_ENCODER1)) && !(cur_button & (1<<BIT_ENCODER1))) {
+		if (ticks > last_button_down_ticks + 1) {
+			if (!(cur_button & (1<<BIT_PUSH))) {
+				if (cur_button & (1<<BIT_ENCODER0))
+					status |= EVT_UP;
+				else
+					status |= EVT_DOWN;
+			} else {
+				if (cur_button & (1<<BIT_ENCODER0))
+					status |= EVT_PUSH_UP;
+				else 
+					status |= EVT_PUSH_DOWN;
+				dragged = 1;
+			}
+			last_button_down_ticks = ticks;
+		}
+	}
+
     last_button = cur_button;
 
 	return status;
@@ -259,10 +258,10 @@ ui_digit(void)
         if (status & EVT_DOWN && uistat.digit > 0)
             uistat.digit--;
         if (count++ % 4 < 2) {
-            i2clcd_cmd(0x0e); // enable show-cursor flag
-            i2clcd_pos(7 - uistat.digit, 1);
+            //i2clcd_cmd(0x0e); // enable show-cursor flag
+            //i2clcd_pos(7 - uistat.digit, 1);
         } else {
-            i2clcd_cmd(0x0c); // disable show-cursor flag
+            //i2clcd_cmd(0x0c); // disable show-cursor flag
         }
         chThdSleepMilliseconds(100);
     }
@@ -335,6 +334,7 @@ ui_process(void)
             update_frequency();
 		}
 
-		ui_update();
+		//ui_update();
+        disp_update();
 	}
 }

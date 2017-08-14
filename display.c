@@ -331,7 +331,7 @@ arm_cfft_radix4_instance_q31 cfft_inst;
 //#define mag(r,i) (q31_t)(((q63_t)r*r)>>33)+(q31_t)(((q63_t)i*i)>>33)
 
 
-#define BG_ACTIVE 0x8208
+#define BG_ACTIVE 0xa20a
 #define BG_NORMAL 0x0000
 
 uistat_t uistat;
@@ -749,6 +749,12 @@ disp_process(void)
   }
 }
 
+void
+disp_update(void)
+{
+  SPDISPINFO->update_flag |= FLAG_UI;
+}
+   
 void
 disp_init(void)
 {

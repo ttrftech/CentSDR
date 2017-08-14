@@ -24,6 +24,9 @@ extern void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf);
 extern void ui_init(void);
 extern void ui_process(void);
 
+extern void set_tune(int hz);
+
+
 // 5ms @ 48kHz
 #define AUDIO_BUFFER_LEN 480
 
@@ -99,6 +102,7 @@ void ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, 
 void disp_init(void);
 void disp_process(void);
 void disp_fetch_samples(void);
+void disp_update(void);
 
 /*
  * ui.c

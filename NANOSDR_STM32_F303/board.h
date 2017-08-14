@@ -162,8 +162,8 @@
                                      PIN_OSPEED_100M(GPIOA_JTMS) |         \
                                      PIN_OSPEED_100M(GPIOA_JTCK) |         \
                                      PIN_OSPEED_100M(15))
-#define VAL_GPIOA_PUPDR             (PIN_PUPDR_PULLUP(0) |         \
-                                     PIN_PUPDR_PULLUP(1) |         \
+#define VAL_GPIOA_PUPDR             (PIN_PUPDR_PULLDOWN(0) |         \
+                                     PIN_PUPDR_PULLDOWN(1) |         \
                                      PIN_PUPDR_FLOATING(GPIOA_USART2_TX) |   \
                                      PIN_PUPDR_FLOATING(GPIOA_USART2_RX) |   \
                                      PIN_PUPDR_PULLUP(4) |         \
@@ -272,9 +272,9 @@
                                      PIN_OSPEED_100M(GPIOB_I2S2_BCLK) | \
                                      PIN_OSPEED_100M(GPIOB_I2S2_MISO) | \
                                      PIN_OSPEED_100M(GPIOB_I2S2_MOSI))
-#define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLUP(0) |         \
-                                     PIN_PUPDR_PULLUP(1) |         \
-                                     PIN_PUPDR_PULLUP(2) |         \
+#define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLDOWN(0) |         \
+                                     PIN_PUPDR_PULLDOWN(1) |         \
+                                     PIN_PUPDR_PULLDOWN(2) |         \
                                      PIN_PUPDR_PULLUP(3) | \
                                      PIN_PUPDR_PULLUP(4) |         \
                                      PIN_PUPDR_PULLUP(5) |         \

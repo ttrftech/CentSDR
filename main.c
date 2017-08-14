@@ -4,6 +4,7 @@
 
 #include <chprintf.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <shell.h>
 
@@ -15,6 +16,8 @@
 
 int count;
 int updated;
+
+static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[]);
 
 
 static THD_WORKING_AREA(waThread1, 128);
@@ -105,7 +108,6 @@ void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
   int32_t cnt_e;
   int16_t *p = &rx_buffer[offset];
   int16_t *q = &tx_buffer[offset];
-  uint32_t i;
   (void)i2sp;
   palSetPad(GPIOC, GPIOC_LED);
 
@@ -427,6 +429,7 @@ static const ShellCommand commands[] =
     { "freq", cmd_freq },
     { "tune", cmd_tune },
     { "dac", cmd_dac },
+    { "uitest", cmd_uitest },
     //{ "ppm", cmd_ppm },
     //{ "i2sinit", cmd_i2sinit },
     //{ "i2sstart", cmd_i2sstart },
@@ -458,42 +461,87 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
     while (1)
     {
       disp_process();
-      //ui_process();
-      //chThdSleepMilliseconds(100);
+      ui_process();
       chThdSleepMilliseconds(10);
     }
 }
 
+
+int enc_status = 0;
+int enc_count = 0;
+
 void ext_callback(EXTDriver *extp, expchannel_t channel)
 {
     (void)extp;
-    switch (channel) {
-    case BIT_UP0: count++; break;
-    case BIT_UP1: count += 10; break;
-    case BIT_DOWN0: count--; break;
-    case BIT_DOWN1: count -= 10; break;
-      //case BIT_PUSH: count = 0; break;
+    int cur = palReadPort(GPIOB);
+#if 1
+    const int trans_tbl[4][4] = {
+      { 0, 0, 3, 3 }, { 1, 1, 2, 2 }, { 0, 1, 1, 0 }, { 3, 2, 2, 3 }
+    };
+    int s = (channel - 1) * 2;
+    if (cur & (1 << channel))
+      s |= 1;
+    if (enc_status == 0 && s == 3)
+      enc_count++;
+    if (enc_status == 3 && s == 2)
+      enc_count--;
+    enc_status = trans_tbl[s][enc_status];
+#else
+    switch (enc_status) {
+    case 0:
+      if (channel == 1 && (cur & (1<<1)))
+        enc_status = 1;
+      if (channel == 2 && (cur & (1<<2))) {
+        enc_status = 3;
+        enc_count++;
+      }
+      break;
+    case 1:
+      if (channel == 2 && (cur & (1<<2)))
+        enc_status = 2;
+      if (channel == 1 && !(cur & (1<<1)))
+        enc_status = 0;
+      break;
+    case 2:
+      if (channel == 1 && !(cur & (1<<1)))
+        enc_status = 3;
+      if (channel == 2 && !(cur & (1<<2)))
+        enc_status = 1;
+      break;
+    case 3:
+      if (channel == 2 && !(cur & (1<<2))) {
+        enc_status = 0;
+        enc_count--;
+      }
+      if (channel == 1 && (cur & (1<<1)))
+        enc_status = 2;
+      break;
     }
-    updated = 1;
-    //chCondSignalI(&condvar_button);
+#endif
 #if 0
-    BaseSequentialStream *chp = &SDU1;
+    if (channel == 0) {
+      enc_count = 0;
+    }
+#endif
+#if 0
+    BaseSequentialStream *chp = (BaseSequentialStream *)&SDU1;
     if (SDU1.config->usbp->state == USB_ACTIVE) {
       chprintf(chp, "EXTI interrupt: %d\r\n", channel);
     }
 #endif
 }
 
+#if 1
 static const EXTConfig extconf = {
   {
+    { EXT_MODE_GPIOA | EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART, ext_callback },
+    { EXT_MODE_GPIOB | EXT_CH_MODE_BOTH_EDGES | EXT_CH_MODE_AUTOSTART, ext_callback },
+    { EXT_MODE_GPIOB | EXT_CH_MODE_BOTH_EDGES | EXT_CH_MODE_AUTOSTART, ext_callback },
     { 0, NULL },
-    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
     { 0, NULL },
     { 0, NULL },
-    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
-    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
-    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
-    { EXT_MODE_GPIOA | EXT_CH_MODE_FALLING_EDGE, ext_callback },
+    { 0, NULL },
+    { 0, NULL },
     { 0, NULL },
     { 0, NULL },
     { 0, NULL },
@@ -520,6 +568,22 @@ static const EXTConfig extconf = {
     { 0, NULL }
   }
 };
+#endif
+
+static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+  int i;
+  for (i = 0; i < 100; i++) {
+    //extern int btn_check(void);
+    //int n = btn_check();
+    //extern int read_buttons(void);
+    //int n = read_buttons();
+    chprintf(chp, "%d\r\n", enc_count);
+    chThdSleepMilliseconds(100);
+  }
+}
 
 static DACConfig dac1cfg1 = {
   //init:         2047U,
@@ -550,13 +614,8 @@ int __attribute__((noreturn)) main(void)
   dacStart(&DACD1, &dac1cfg1);
 
   i2cStart(&I2CD1, &i2ccfg);
-#if 0
+#if 1
   extStart(&EXTD1, &extconf);
-  extChannelEnable(&EXTD1, BIT_UP0);
-  extChannelEnable(&EXTD1, BIT_UP1);
-  extChannelEnable(&EXTD1, BIT_DOWN0);
-  extChannelEnable(&EXTD1, BIT_DOWN1);
-  extChannelEnable(&EXTD1, BIT_PUSH);
   //chCondObjectInit(&condvar_button);
 #endif
   /*
