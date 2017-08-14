@@ -1,13 +1,6 @@
 
 extern void I2CWrite(int addr, uint8_t d0, uint8_t d1);
 
-#if 0
-extern void i2clcd_init(void);
-extern void i2clcd_str(const char *p);
-extern void i2clcd_pos(uint8_t x, uint8_t y);
-extern void i2clcd_cmd(uint8_t cmd);
-#endif
-
 typedef struct {
   int target_level;
   int gain_hysteresis;

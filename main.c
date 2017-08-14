@@ -568,12 +568,6 @@ int __attribute__((noreturn)) main(void)
    * Creates the blinker thread.
    */
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
-#if 0
-  i2clcd_init();
-  i2clcd_str("FriskSDR");
-  i2clcd_pos(0, 1);
-  i2clcd_str("Hello");
-#endif
 #if 1
   ui_init();
 #endif

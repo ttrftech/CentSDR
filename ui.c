@@ -135,75 +135,6 @@ int16_t agc_slowness_table[AGCMODE_MAX] = {
 		-1, 10, 5, 1
 };
 
-#if 0
-const char *agc_mode_table[AGCMODE_MAX] = {
-		"OFF", "Slow", "Med", "Fast"
-};
-
-const char *mod_table[] = { "AM", "LSB", "USB"};
-
-void
-ui_update(void)
-{
-	char buf[16];
-	i2clcd_pos(0, 1);
-	switch (uistat.mode) {
-	case VOLUME:
-        i2clcd_str("Vol:");
-		if (uistat.volume < -6)
-            i2clcd_str("mute");
-		else {
-            itoa(uistat.volume, buf, 10);
-            i2clcd_str(buf);
-        }
-		break;
-	case CHANNEL:
-        i2clcd_str("Ch");
-        itoa(uistat.channel, buf, 10);
-        i2clcd_str(buf);
-        i2clcd_str(" ");
-        itoa(uistat.freq/1000, buf, 10);
-        i2clcd_str(buf);
-		break;
-	case FREQ:
-        itoa(uistat.freq, buf, 10);
-        i2clcd_str("        "+strlen(buf));
-        i2clcd_str(buf);
-		break;
-	case MOD:
-        i2clcd_str("Mod:");
-		i2clcd_str(mod_table[uistat.modulation]);
-		break;
-	case RFGAIN:
-        i2clcd_str("RF:");
-        itoa(uistat.rfgain/2, buf, 10);
-        i2clcd_str(buf);
-        i2clcd_str("dB");
-		break;
-	case DGAIN:
-        i2clcd_str("D:");
-        itoa(uistat.dgain/2, buf, 10);
-        i2clcd_str(buf);
-        i2clcd_str("dB");
-		break;
-	case AGC:
-        i2clcd_str("AGC:");
-		i2clcd_str(agc_mode_table[uistat.agcmode]);
-		break;
-	default:
-		break;
-	}
-	i2clcd_str("        ");
-
-	if (uistat.mode == FREQ) {
-		i2clcd_cmd(0x0e); // enable show-cursor flag
-		i2clcd_pos(7 - uistat.digit, 1);
-	} else {
-		i2clcd_cmd(0x0c); // disable show-cursor flag
-	}
-}
-#endif
-
 void
 update_frequency(void)
 {
@@ -286,10 +217,6 @@ static const EXTConfig extconf = {
 void
 ui_init(void)
 {
-#if 0
-    i2clcd_init();
-    i2clcd_str("FriskSDR");
-#endif
 #if 1
   extStart(&EXTD1, &extconf);
   //chCondObjectInit(&condvar_button);
