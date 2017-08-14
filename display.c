@@ -602,8 +602,8 @@ itoap(int value, char *buf, int dig)
   do {
     buf[dig--] = (value % 10) + '0';
     value /= 10;
-  } while (value > 0 && dig > 0);
-  if (neg && dig > 0) {
+  } while (value > 0 && dig >= 0);
+  if (neg && dig >= 0) {
     buf[dig--] = neg;    
   }
   while (dig >= 0) {
@@ -714,7 +714,7 @@ draw_info(void)
 	bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
 	ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
 	x += 20;
-    itoap(-6 * UISTAT->rfgain, str, 3);
+    itoap(UISTAT->rfgain / 2, str, 3);
     strcat(str, " ");
 	ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
 	x += 60;

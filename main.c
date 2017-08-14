@@ -467,109 +467,6 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
 }
 
 
-int enc_status = 0;
-int enc_count = 0;
-
-void ext_callback(EXTDriver *extp, expchannel_t channel)
-{
-    (void)extp;
-    int cur = palReadPort(GPIOB);
-#if 1
-    const int trans_tbl[4][4] = {
-      { 0, 0, 3, 3 }, { 1, 1, 2, 2 }, { 0, 1, 1, 0 }, { 3, 2, 2, 3 }
-    };
-    int s = (channel - 1) * 2;
-    if (cur & (1 << channel))
-      s |= 1;
-    if (enc_status == 0 && s == 3)
-      enc_count++;
-    if (enc_status == 3 && s == 2)
-      enc_count--;
-    enc_status = trans_tbl[s][enc_status];
-#else
-    switch (enc_status) {
-    case 0:
-      if (channel == 1 && (cur & (1<<1)))
-        enc_status = 1;
-      if (channel == 2 && (cur & (1<<2))) {
-        enc_status = 3;
-        enc_count++;
-      }
-      break;
-    case 1:
-      if (channel == 2 && (cur & (1<<2)))
-        enc_status = 2;
-      if (channel == 1 && !(cur & (1<<1)))
-        enc_status = 0;
-      break;
-    case 2:
-      if (channel == 1 && !(cur & (1<<1)))
-        enc_status = 3;
-      if (channel == 2 && !(cur & (1<<2)))
-        enc_status = 1;
-      break;
-    case 3:
-      if (channel == 2 && !(cur & (1<<2))) {
-        enc_status = 0;
-        enc_count--;
-      }
-      if (channel == 1 && (cur & (1<<1)))
-        enc_status = 2;
-      break;
-    }
-#endif
-#if 0
-    if (channel == 0) {
-      enc_count = 0;
-    }
-#endif
-#if 0
-    BaseSequentialStream *chp = (BaseSequentialStream *)&SDU1;
-    if (SDU1.config->usbp->state == USB_ACTIVE) {
-      chprintf(chp, "EXTI interrupt: %d\r\n", channel);
-    }
-#endif
-}
-
-#if 1
-static const EXTConfig extconf = {
-  {
-    { EXT_MODE_GPIOA | EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART, ext_callback },
-    { EXT_MODE_GPIOB | EXT_CH_MODE_BOTH_EDGES | EXT_CH_MODE_AUTOSTART, ext_callback },
-    { EXT_MODE_GPIOB | EXT_CH_MODE_BOTH_EDGES | EXT_CH_MODE_AUTOSTART, ext_callback },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL },
-    { 0, NULL }
-  }
-};
-#endif
-
 static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -580,6 +477,7 @@ static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
     //int n = btn_check();
     //extern int read_buttons(void);
     //int n = read_buttons();
+    extern int enc_count;
     chprintf(chp, "%d\r\n", enc_count);
     chThdSleepMilliseconds(100);
   }
@@ -614,10 +512,6 @@ int __attribute__((noreturn)) main(void)
   dacStart(&DACD1, &dac1cfg1);
 
   i2cStart(&I2CD1, &i2ccfg);
-#if 1
-  extStart(&EXTD1, &extconf);
-  //chCondObjectInit(&condvar_button);
-#endif
   /*
    * Initializes a serial-over-USB CDC driver.
    */

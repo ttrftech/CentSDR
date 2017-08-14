@@ -32,6 +32,9 @@
 #define set_modulation(mod) signal_process = demod_funcs[mod]
 #define set_agc(mode) set_agc_mode(mode)
 
+
+int fetch_encoder_tick(void);
+
 #define CHANNEL_MAX 10
 
 uint32_t channel_table[CHANNEL_MAX] = {
@@ -77,12 +80,12 @@ int modulation_frequency_offset[] = {
 
 static uint16_t last_button = 0;
 static uint32_t last_button_down_ticks;
-static uint8_t dragged = 0; // encoder changed while button pressed
+//static uint8_t dragged = 0; // encoder changed while button pressed
 
 int
 read_buttons(void)
 {
-  return (palReadPort(GPIOA) & 0x1) | (palReadPort(GPIOB) & 0x6);
+  return (palReadPort(GPIOA) & 0x1);
 }
 
 int btn_check(void)
@@ -113,24 +116,6 @@ int btn_check(void)
 		}
 	}
 
-	if ((changed & (1<<BIT_ENCODER1)) && !(cur_button & (1<<BIT_ENCODER1))) {
-		if (ticks > last_button_down_ticks + 1) {
-			if (!(cur_button & (1<<BIT_PUSH))) {
-				if (cur_button & (1<<BIT_ENCODER0))
-					status |= EVT_UP;
-				else
-					status |= EVT_DOWN;
-			} else {
-				if (cur_button & (1<<BIT_ENCODER0))
-					status |= EVT_PUSH_UP;
-				else 
-					status |= EVT_PUSH_DOWN;
-				dragged = 1;
-			}
-			last_button_down_ticks = ticks;
-		}
-	}
-
     last_button = cur_button;
 
 	return status;
@@ -149,7 +134,6 @@ const char *agc_mode_table[AGCMODE_MAX] = {
 };
 
 const char *mod_table[] = { "AM", "LSB", "USB"};
-
 
 void
 ui_update(void)
@@ -213,10 +197,131 @@ ui_update(void)
 }
 
 void
-update_frequency()
+update_frequency(void)
 {
   set_frequency(uistat.freq + modulation_frequency_offset[uistat.modulation]);
 }
+
+
+
+
+
+
+
+
+int enc_status = 0;
+int enc_count = 0;
+
+
+int
+fetch_encoder_tick(void)
+{
+  int n = enc_count;
+  enc_count = 0;
+  return n;
+}
+
+void ext_callback(EXTDriver *extp, expchannel_t channel)
+{
+    (void)extp;
+    int cur = palReadPort(GPIOB);
+#if 1
+    const int trans_tbl[4][4] = {
+      /*falling A */  /*rising A  */  /*falling B */  /*rising B  */
+      { 0, 0, 3, 3 }, { 1, 1, 2, 2 }, { 0, 1, 1, 0 }, { 3, 2, 2, 3 }
+    };
+    int s = (channel - 1) * 2; // A: 0, B: 2
+    if (cur & (1 << channel))
+      s |= 1; // rising
+    if (enc_status == 0 && s == 3)
+      enc_count--;
+    if (enc_status == 3 && s == 2)
+      enc_count++;
+    enc_status = trans_tbl[s][enc_status];
+#else
+    switch (enc_status) {
+    case 0:
+      if (channel == 1 && (cur & (1<<1)))
+        enc_status = 1;
+      if (channel == 2 && (cur & (1<<2))) {
+        enc_status = 3;
+        enc_count++;
+      }
+      break;
+    case 1:
+      if (channel == 2 && (cur & (1<<2)))
+        enc_status = 2;
+      if (channel == 1 && !(cur & (1<<1)))
+        enc_status = 0;
+      break;
+    case 2:
+      if (channel == 1 && !(cur & (1<<1)))
+        enc_status = 3;
+      if (channel == 2 && !(cur & (1<<2)))
+        enc_status = 1;
+      break;
+    case 3:
+      if (channel == 2 && !(cur & (1<<2))) {
+        enc_status = 0;
+        enc_count--;
+      }
+      if (channel == 1 && (cur & (1<<1)))
+        enc_status = 2;
+      break;
+    }
+#endif
+#if 0
+    if (channel == 0) {
+      enc_count = 0;
+    }
+#endif
+#if 0
+    BaseSequentialStream *chp = (BaseSequentialStream *)&SDU1;
+    if (SDU1.config->usbp->state == USB_ACTIVE) {
+      chprintf(chp, "EXTI interrupt: %d\r\n", channel);
+    }
+#endif
+}
+
+#if 1
+static const EXTConfig extconf = {
+  {
+    { 0, NULL }, //{ EXT_MODE_GPIOA | EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART, ext_callback },
+    { EXT_MODE_GPIOB | EXT_CH_MODE_BOTH_EDGES | EXT_CH_MODE_AUTOSTART, ext_callback },
+    { EXT_MODE_GPIOB | EXT_CH_MODE_BOTH_EDGES | EXT_CH_MODE_AUTOSTART, ext_callback },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL },
+    { 0, NULL }
+  }
+};
+#endif
+
 
 void
 ui_init(void)
@@ -225,7 +330,12 @@ ui_init(void)
     i2clcd_init();
     i2clcd_str("FriskSDR");
 #endif
-	uistat.mode = CHANNEL;
+#if 1
+  extStart(&EXTD1, &extconf);
+  //chCondObjectInit(&condvar_button);
+#endif
+
+    uistat.mode = CHANNEL;
 	uistat.channel = 0;
 	uistat.freq = 567000;
 	uistat.digit = 3;
@@ -267,74 +377,67 @@ ui_digit(void)
     }
 }
 
+
+static int minmax(int x, int min, int max)
+{
+  if (x > max)
+    return max - 1;
+  if (x < min)
+    return min;
+  return x;
+}
+
 void
 ui_process(void)
 {
 	int status = btn_check();
+    int tick = fetch_encoder_tick();
 	int n;
-	if (status != 0) {
-		if (status & EVT_BUTTON_SINGLE_CLICK) {
-            // enable RFGAIN and DGAIN only when AGC is disabled
-            int mode_max = uistat.agcmode == AGC_MANUAL ? MODE_MAX : RFGAIN;
-			uistat.mode = (uistat.mode + 1) % mode_max;
-		} else if (uistat.mode == CHANNEL) {
-			if ((status & EVT_UP) && uistat.channel < CHANNEL_MAX)
-				uistat.channel++;
-			if ((status & EVT_DOWN) && uistat.channel > 0)
-				uistat.channel--;
-            uistat.freq = channel_table[uistat.channel];
-            update_frequency();
-		} else if (uistat.mode == VOLUME) {
-			if ((status & EVT_UP) && uistat.volume < VOLUME_MAX)
-				uistat.volume++;
-			if ((status & EVT_DOWN) && uistat.volume > VOLUME_MIN)
-				uistat.volume--;
-			set_volume(uistat.volume);
-		} else if (uistat.mode == FREQ) {
-			int32_t step = 1;
-			for (n = uistat.digit; n > 0; n--)
-				step *= 10;
-			if (status & EVT_UP) {
-				uistat.freq += step;
-                update_frequency();
-			}
-			if (status & EVT_DOWN) {
-				uistat.freq -= step;
-                update_frequency();
-			}
-			if (status & EVT_BUTTON_DOWN_LONG) {
-              ui_digit();
-            }
-		} else if (uistat.mode == RFGAIN) {
-			if ((status & EVT_UP) && uistat.rfgain < RFGAIN_MAX-2)
-				uistat.rfgain += 2;
-			if ((status & EVT_DOWN) && uistat.rfgain > 0)
-				uistat.rfgain -= 2;
-            set_gain(uistat.rfgain);
-		} else if (uistat.mode == DGAIN) {
-			if ((status & EVT_UP) && uistat.dgain < 40)
-				uistat.dgain += 2;
-			if ((status & EVT_DOWN) && uistat.dgain > -24)
-				uistat.dgain -= 2;
-            set_dgain(uistat.dgain);
-		} else if (uistat.mode == AGC) {
-			if ((status & EVT_DOWN) && uistat.agcmode > 0)
-				uistat.agcmode--;
-			if ((status & EVT_UP) && uistat.agcmode < AGCMODE_MAX-1)
-				uistat.agcmode++;
-            set_agc(uistat.agcmode);
-		} else if (uistat.mode == MOD) {
-			if ((status & EVT_UP) && uistat.modulation < MOD_MAX-1) {
-				uistat.modulation++;
-			}
-			if ((status & EVT_DOWN) && uistat.modulation > 0) {
-				uistat.modulation--;
-			}
-            set_modulation(uistat.modulation);
-            update_frequency();
-		}
+    if (status & EVT_BUTTON_SINGLE_CLICK) {
+      // enable RFGAIN and DGAIN only when AGC is disabled
+      int mode_max = uistat.agcmode == AGC_MANUAL ? MODE_MAX : RFGAIN;
+      uistat.mode = (uistat.mode + 1) % mode_max;
+      disp_update();
+    }
+    if (tick != 0) {
+      if (uistat.mode == CHANNEL) {
+        uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
+        uistat.freq = channel_table[uistat.channel];
+        update_frequency();
+      } else if (uistat.mode == VOLUME) {
+        uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
+        set_volume(uistat.volume);
+      } else if (uistat.mode == FREQ) {
+        int32_t step = 1;
+        for (n = uistat.digit; n > 0; n--)
+          step *= 10;
+        uistat.freq += step * tick;
+        update_frequency();
+        if (status & EVT_BUTTON_DOWN_LONG) {
+          ui_digit();
+        }
+      } else if (uistat.mode == RFGAIN) {
+        uistat.rfgain = minmax(uistat.rfgain + tick, 0, RFGAIN_MAX);
+        set_gain(uistat.rfgain);
+      } else if (uistat.mode == DGAIN) {
+        uistat.dgain = minmax(uistat.dgain + tick, -24, 40);
+        set_dgain(uistat.dgain);
+      } else if (uistat.mode == AGC) {
+        uistat.agcmode = minmax(uistat.agcmode + tick, 0, 4);
+        set_agc(uistat.agcmode);
+      } else if (uistat.mode == MOD) {
+        if (tick > 0 && uistat.modulation < MOD_MAX-1) {
+          uistat.modulation++;
+        }
+        if (tick < 0 && uistat.modulation > 0) {
+          uistat.modulation--;
+        }
+        set_modulation(uistat.modulation);
+        update_frequency();
+      }
 
-		//ui_update();
-        disp_update();
+      //ui_update();
+      disp_update();
 	}
 }
+
