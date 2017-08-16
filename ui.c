@@ -256,58 +256,72 @@ ui_process(void)
     int tick = fetch_encoder_tick();
 	int n;
     if (status & EVT_BUTTON_SINGLE_CLICK) {
-      // enable RFGAIN and DGAIN only when AGC is disabled
-      int mode_max = uistat.agcmode == AGC_MANUAL ? MODE_MAX : RFGAIN;
-      uistat.mode = (uistat.mode + 1) % mode_max;
+      uistat.mode = (uistat.mode + 1) % MODE_MAX;
       disp_update();
     }
     if (tick != 0) {
-      if (uistat.mode == CHANNEL) {
-        uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
-        uistat.freq = channel_table[uistat.channel];
-        update_frequency();
-      } else if (uistat.mode == VOLUME) {
-        uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
-        set_volume(uistat.volume);
-      } else if (uistat.mode == FREQ) {
+      if (read_buttons() != 0) {
+        // button pressed
 
-        if (read_buttons() == 0) {
+        if (uistat.mode == FREQ) {
+          if (tick < 0) {
+            if (uistat.digit < 7)
+              uistat.digit++;
+            else
+              uistat.mode--;
+          }
+          if (tick > 0) {
+            if (uistat.digit > 0)
+              uistat.digit--;
+            else
+              uistat.mode++;
+          }
+        } else {
+          if (tick < 0)
+            uistat.mode--;
+          if (tick > 0)
+            uistat.mode++;
+          uistat.mode = uistat.mode % MODE_MAX;
+        }
+        disp_update();
+        inhibit_button_event();
+      } else {
+        if (uistat.mode == CHANNEL) {
+          uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
+          uistat.freq = channel_table[uistat.channel];
+          update_frequency();
+        } else if (uistat.mode == VOLUME) {
+          uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
+          set_volume(uistat.volume);
+        } else if (uistat.mode == FREQ) {
           int32_t step = 1;
           for (n = uistat.digit; n > 0; n--)
             step *= 10;
-          uistat.freq += step * tick;
+          int32_t freq = uistat.freq + step * tick;
+          if (freq > 0)
+            uistat.freq = freq;
           update_frequency();
-        } else {
-          // button pressed
-          if (tick != 0) {
-            if (tick < 0 && uistat.digit < 7)
-              uistat.digit++;
-            if (tick > 0 && uistat.digit > 0)
-              uistat.digit--;
-            inhibit_button_event();
+        } else if (uistat.mode == RFGAIN) {
+          uistat.rfgain = minmax(uistat.rfgain + tick, 0, RFGAIN_MAX);
+          set_gain(uistat.rfgain);
+        } else if (uistat.mode == DGAIN) {
+          uistat.dgain = minmax(uistat.dgain + tick, -24, 40);
+          set_dgain(uistat.dgain);
+        } else if (uistat.mode == AGC) {
+          uistat.agcmode = minmax(uistat.agcmode + tick, 0, 4);
+          set_agc(uistat.agcmode);
+        } else if (uistat.mode == MOD) {
+          if (tick > 0 && uistat.modulation < MOD_MAX-1) {
+            uistat.modulation++;
           }
+          if (tick < 0 && uistat.modulation > 0) {
+            uistat.modulation--;
+          }
+          set_modulation(uistat.modulation);
+          update_frequency();
+        } else if (uistat.mode == SPDISP) {
+          uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, 2);
         }
-        
-      } else if (uistat.mode == RFGAIN) {
-        uistat.rfgain = minmax(uistat.rfgain + tick, 0, RFGAIN_MAX);
-        set_gain(uistat.rfgain);
-      } else if (uistat.mode == DGAIN) {
-        uistat.dgain = minmax(uistat.dgain + tick, -24, 40);
-        set_dgain(uistat.dgain);
-      } else if (uistat.mode == AGC) {
-        uistat.agcmode = minmax(uistat.agcmode + tick, 0, 4);
-        set_agc(uistat.agcmode);
-      } else if (uistat.mode == MOD) {
-        if (tick > 0 && uistat.modulation < MOD_MAX-1) {
-          uistat.modulation++;
-        }
-        if (tick < 0 && uistat.modulation > 0) {
-          uistat.modulation--;
-        }
-        set_modulation(uistat.modulation);
-        update_frequency();
-      } else if (uistat.mode == SPDISP) {
-        uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, 2);
       }
       
       //ui_update();

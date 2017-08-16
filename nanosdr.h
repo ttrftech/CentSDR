@@ -61,7 +61,7 @@ extern const uint32_t icons48x20[][20*2];
 /*
  * ili9341.c
  */
-#define RGB565(b,g,r)     ( (((r)<<8)&0xf800) | (((g)<<2)&0x07e0) | (((b)>>3)&0x001f) )
+#define RGB565(b,g,r)     ( (((r)<<8)&0xf800) | (((g)<<3)&0x07e0) | (((b)>>3)&0x001f) )
 
 typedef struct {
 	uint16_t width;

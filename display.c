@@ -331,7 +331,7 @@ arm_cfft_radix4_instance_q31 cfft_inst;
 //#define mag(r,i) (q31_t)(((q63_t)r*r)>>33)+(q31_t)(((q63_t)i*i)>>33)
 
 
-#define BG_ACTIVE 0xa20a
+#define BG_ACTIVE RGB565(15,10,10)
 #define BG_NORMAL 0x0000
 
 uistat_t uistat;
@@ -615,6 +615,8 @@ void
 draw_tick(void)
 {
 	char str[10];
+	uint16_t mode = UISTAT->spdispmode;
+    SPDISPINFO->p = spdisp_source[mode].param;
 	int x = SPDISPINFO->p.origin;
 	int base = SPDISPINFO->p.tickbase;
 	int xx;
@@ -664,7 +666,7 @@ draw_freq(void)
 		uint16_t fg = 0xffff;
         int focused = FALSE;
 		if (UISTAT->mode == FREQ && UISTAT->digit == 7-i) {
-			fg = 0xfe40;
+            fg = RGB565(128,255,128);
             focused = TRUE;
         }
 		if (c >= 0 && c <= 9)
@@ -715,15 +717,27 @@ draw_info(void)
 	ili9341_drawfont(UISTAT->agcmode + 3, &ICON48x20, x+2, y+2, 0xffff, bg);
 	x += 48+4;
 
-	bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
-	x += 20;
-    itoap(UISTAT->rfgain / 2, str, 3);
-    strcat(str, " ");
-	ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
-	x += 60;
-	ili9341_drawfont(13, &NF20x24, x, y, 0x07ff, bg);
-	x += 20;
+    if (UISTAT->mode != DGAIN) {
+      bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
+      ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
+      x += 20;
+      itoap(UISTAT->rfgain / 2, str, 3);
+      strcat(str, " ");
+      ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
+      x += 60;
+      ili9341_drawfont(13, &NF20x24, x, y, 0x07ff, bg);
+      x += 20;
+    } else {
+      bg = BG_ACTIVE;
+      ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
+      x += 20;
+      itoap(UISTAT->dgain, str, 3);
+      strcat(str, " ");
+      ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
+      x += 60;
+      ili9341_drawfont(13, &NF20x24, x, y, 0x070f, bg);
+      x += 20;
+    }
 }
 
 void
