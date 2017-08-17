@@ -320,7 +320,7 @@ ui_process(void)
           set_modulation(uistat.modulation);
           update_frequency();
         } else if (uistat.mode == SPDISP) {
-          uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, 2);
+          uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, 3);
         }
       }
       

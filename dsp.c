@@ -4,6 +4,9 @@
 int16_t buffer_i[AUDIO_BUFFER_LEN];
 int16_t buffer_q[AUDIO_BUFFER_LEN];
 
+int16_t buffer_i2[AUDIO_BUFFER_LEN];
+int16_t buffer_q2[AUDIO_BUFFER_LEN];
+
 
 const int16_t cos_sin_table[256][4] = {
     { -32767,   10,      0, -804 },
@@ -330,12 +333,12 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     disp_fetch_samples();
 
     // apply low pass filter
-	arm_biquad_cascade_df1_q15(&bq_i, buffer_i, buffer_i, len/2);
-	arm_biquad_cascade_df1_q15(&bq_q, buffer_q, buffer_q, len/2);
+	arm_biquad_cascade_df1_q15(&bq_i, buffer_i, buffer_i2, len/2);
+	arm_biquad_cascade_df1_q15(&bq_q, buffer_q, buffer_q2, len/2);
 
     // shift frequency inverse
-	bufi = buffer_i;
-	bufq = buffer_q;
+	bufi = buffer_i2;
+	bufq = buffer_q2;
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco2_phase);
 		nco2_phase += phasestep;
@@ -373,11 +376,11 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     disp_fetch_samples();
 
     // apply low pass filter
-	arm_biquad_cascade_df1_q15(&bq_am_i, buffer_i, buffer_i, len/2);
-	arm_biquad_cascade_df1_q15(&bq_am_q, buffer_q, buffer_q, len/2);
+	arm_biquad_cascade_df1_q15(&bq_am_i, buffer_i, buffer_i2, len/2);
+	arm_biquad_cascade_df1_q15(&bq_am_q, buffer_q, buffer_q2, len/2);
 
-	bufi = buffer_i;
-	bufq = buffer_q;
+	bufi = buffer_i2;
+	bufq = buffer_q2;
     for (i = 0; i < len/2; i++) {
       int32_t x = *bufi++;
       int32_t y = *bufq++;

@@ -363,6 +363,8 @@ typedef struct {
 
 extern int16_t buffer_i[AUDIO_BUFFER_LEN];
 extern int16_t buffer_q[AUDIO_BUFFER_LEN];
+extern int16_t buffer_i2[AUDIO_BUFFER_LEN];
+extern int16_t buffer_q2[AUDIO_BUFFER_LEN];
 extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
@@ -374,6 +376,8 @@ struct {
 } spdisp_source[SPDISP_MODE_MAX] = {
 		{ buffer_i, buffer_q, AUDIO_BUFFER_LEN,
           // sps, off, stride, gain,   origin, step, base, unit
+		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
+		{ buffer_i2, buffer_q2, AUDIO_BUFFER_LEN,
 		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
 		{ tx_buffer, NULL, AUDIO_BUFFER_LEN,
 		  { 48000,    0, 1, 0,	         0, 43, 0, 2, "kHz" } }
