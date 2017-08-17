@@ -14,12 +14,7 @@
 #include <stm32f303xc.h>
 
 
-int count;
-int updated;
-
-static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[]);
-
-
+#if 0
 static THD_WORKING_AREA(waThread1, 128);
 static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
 {
@@ -34,6 +29,7 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
 	chThdSleepMilliseconds(time);
     }
 }
+#endif
 
 static void cmd_reset(BaseSequentialStream *chp, int argc, char *argv[])
 {
@@ -86,6 +82,26 @@ static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
     si5351_set_frequency(freq);
 }
 
+void
+set_tune(int hz)
+{
+  si5351_set_frequency(hz * 4);
+}
+
+static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int freq;
+    if (argc != 1) {
+        chprintf(chp, "usage: tune {frequency(Hz)}\r\n");
+        return;
+    }
+    freq = atoi(argv[0]);
+    set_tune(freq);
+}
+
+
+
+
 static struct {
   int16_t rms[2];
   int16_t ave[2];
@@ -101,6 +117,10 @@ int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
 signal_process_func_t signal_process = am_demod;
 int32_t mode_freq_offset = AM_FREQ_OFFSET;
+
+tlv320aic3204_agc_config_t agc_config;
+
+
 
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 {
@@ -132,33 +152,7 @@ static const I2SConfig i2sconfig = {
   2 // i2spr
 };
 
-extern void tlv320aic3204_init(void);
 
-#if 0
-static void cmd_i2sinit(BaseSequentialStream *chp, int argc, char *argv[])
-{
-  (void)chp;
-  (void)argc;
-  (void)argv;
-  tlv320aic3204_init();
-}
-
-static void cmd_i2sstart(BaseSequentialStream *chp, int argc, char *argv[])
-{
-  (void)chp;
-  (void)argc;
-  (void)argv;
-  i2sStartExchange(&I2SD2);
-}
-
-static void cmd_i2sstop(BaseSequentialStream *chp, int argc, char *argv[])
-{
-  (void)chp;
-  (void)argc;
-  (void)argv;
-  i2sStopExchange(&I2SD2);
-}
-#endif
 
 #define FS 48000
 
@@ -176,7 +170,7 @@ static void cmd_tone(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int freq = 440;
     if (argc > 1) {
-        chprintf(chp, "usage: freq {frequency(kHz)}\r\n");
+        chprintf(chp, "usage: tone {audio frequency(Hz)}\r\n");
         return;
     } else if (argc == 1) {
       freq = atoi(argv[0]);
@@ -253,8 +247,6 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   chprintf(chp, "load: %d\r\n", stat.busy_cycles * 100 / stat.interval_cycles);
 }
 
-extern void tlv320aic3204_set_gain(int gain);
-extern void tlv320aic3204_set_volume(int gain);
 
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
@@ -292,54 +284,6 @@ static void cmd_dac(BaseSequentialStream *chp, int argc, char *argv[])
     //config.dac_value = value;
     dacPutChannelX(&DACD1, 0, value);
 }
-
-//static int ppm = 28430;
-
-void
-set_tune(int hz)
-{
-  hz = hz*4 - mode_freq_offset;
-  si5351_set_frequency(hz);
-}
-
-static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
-{
-    int freq;
-    if (argc != 1) {
-        chprintf(chp, "usage: tune {frequency(Hz)}\r\n");
-        return;
-    }
-    freq = atoi(argv[0]);
-    set_tune(freq);
-}
-
-#if 0
-static void cmd_ppm(BaseSequentialStream *chp, int argc, char *argv[])
-{
-    if (argc != 1) {
-        chprintf(chp, "usage: ppm {value}\r\n");
-        //chprintf(chp, "current: %d\r\n", ppm);
-        return;
-    }
-    ppm = atoi(argv[0]);
-}
-#endif
-
-#define BIT_PUSH	5
-#define BIT_DOWN0	4
-#define BIT_DOWN1	1
-#define BIT_UP0 	7
-#define BIT_UP1 	6
-
-static void cmd_port(BaseSequentialStream *chp, int argc, char *argv[])
-{
-    (void)argc;
-    (void)argv;
-    chprintf(chp, "current: %x %d\r\n", palReadPort(GPIOA) & 0b11110010, count);
-}
-
-
-tlv320aic3204_agc_config_t agc_config;
 
 static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
 {
@@ -421,52 +365,6 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
-#define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
-
-static const ShellCommand commands[] =
-{
-    { "reset", cmd_reset },
-    { "freq", cmd_freq },
-    { "tune", cmd_tune },
-    { "dac", cmd_dac },
-    { "uitest", cmd_uitest },
-    //{ "ppm", cmd_ppm },
-    //{ "i2sinit", cmd_i2sinit },
-    //{ "i2sstart", cmd_i2sstart },
-    //{ "i2sstop", cmd_i2sstop },
-    { "tone", cmd_tone },
-    { "data", cmd_data },
-    { "stat", cmd_stat },
-    { "gain", cmd_gain },
-    { "volume", cmd_volume },
-    { "port", cmd_port },
-    { "agc", cmd_agc },
-    { "mode", cmd_mode },
-    { NULL, NULL }
-};
-
-static const ShellConfig shell_cfg1 =
-{
-    (BaseSequentialStream *)&SDU1,
-    commands
-};
-
-//static condition_variable_t condvar_button;
-
-static THD_WORKING_AREA(waThread2, 512);
-static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
-{
-    (void)arg;
-    chRegSetThreadName("button");
-    while (1)
-    {
-      disp_process();
-      ui_process();
-      chThdSleepMilliseconds(10);
-    }
-}
-
-
 static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -483,11 +381,52 @@ static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
   }
 }
 
+static const ShellCommand commands[] =
+{
+    { "reset", cmd_reset },
+    { "freq", cmd_freq },
+    { "tune", cmd_tune },
+    { "dac", cmd_dac },
+    { "uitest", cmd_uitest },
+    { "tone", cmd_tone },
+    { "data", cmd_data },
+    { "stat", cmd_stat },
+    { "gain", cmd_gain },
+    { "volume", cmd_volume },
+    { "agc", cmd_agc },
+    { "mode", cmd_mode },
+    { NULL, NULL }
+};
+
+static THD_WORKING_AREA(waThread2, 512);
+static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
+{
+    (void)arg;
+    chRegSetThreadName("button");
+    while (1)
+    {
+      disp_process();
+      ui_process();
+      chThdSleepMilliseconds(10);
+    }
+}
+
+
 static DACConfig dac1cfg1 = {
   //init:         2047U,
   init:         1080U,
   datamode:     DAC_DHRM_12BIT_RIGHT
 };
+
+
+#define SHELL_WA_SIZE THD_WORKING_AREA_SIZE(2048)
+
+static const ShellConfig shell_cfg1 =
+{
+    (BaseSequentialStream *)&SDU1,
+    commands
+};
+
 
 /*
  * Application entry point.
@@ -564,10 +503,13 @@ int __attribute__((noreturn)) main(void)
    */
   shellInit();
 
+#if 0
   /*
    * Creates the blinker thread.
    */
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
+#endif
+
 #if 1
   ui_init();
 #endif
