@@ -735,7 +735,7 @@ draw_info(void)
       bg = BG_ACTIVE;
       ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
       x += 20;
-      itoap(UISTAT->dgain, str, 3);
+      itoap(UISTAT->dgain / 2, str, 3);
       strcat(str, " ");
       ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
       x += 60;

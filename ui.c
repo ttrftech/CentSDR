@@ -302,10 +302,10 @@ ui_process(void)
             uistat.freq = freq;
           update_frequency();
         } else if (uistat.mode == RFGAIN) {
-          uistat.rfgain = minmax(uistat.rfgain + tick, 0, RFGAIN_MAX);
+          uistat.rfgain = minmax(uistat.rfgain + tick, 0, RFGAIN_MAX+1);
           set_gain(uistat.rfgain);
         } else if (uistat.mode == DGAIN) {
-          uistat.dgain = minmax(uistat.dgain + tick, -24, 40);
+          uistat.dgain = minmax(uistat.dgain + tick, -24, 41);
           set_dgain(uistat.dgain);
         } else if (uistat.mode == AGC) {
           uistat.agcmode = minmax(uistat.agcmode + tick, 0, 4);
