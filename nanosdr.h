@@ -64,8 +64,7 @@ void usb_demod(int16_t *src, int16_t *dst, size_t len);
 
 void set_agc_mode(int agcmode);
 
-#define AM_FREQ_OFFSET 10000
-//#define AM_FREQ_OFFSET 0
+#define AM_FREQ_OFFSET 300
 #define SSB_FREQ_OFFSET 1300
 
 
@@ -145,14 +144,15 @@ void disp_update(void);
 extern void ui_init(void);
 extern void ui_process(void);
 
-extern void set_tune(int hz);
-
 typedef enum {
 	MOD_LSB,
 	MOD_USB,
 	MOD_AM,
 	MOD_MAX
 } modulation_t;
+
+extern void set_tune(int hz);
+extern void set_modulation(modulation_t mod);
 
 typedef struct {
     enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, SPDISP, MODE_MAX } mode;

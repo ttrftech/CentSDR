@@ -28,13 +28,12 @@
 #define set_volume(gain) tlv320aic3204_set_volume(gain)
 #define set_gain(gain) tlv320aic3204_set_gain(gain)
 #define set_dgain(gain) tlv320aic3204_set_digital_gain(gain)
-#define set_modulation(mod) signal_process = demod_funcs[mod]
 #define set_agc(mode) set_agc_mode(mode)
 
 
 int fetch_encoder_tick(void);
 
-#define CHANNEL_MAX 10
+#define CHANNEL_MAX 18
 
 uint32_t channel_table[CHANNEL_MAX] = {
   567000,
@@ -45,13 +44,14 @@ uint32_t channel_table[CHANNEL_MAX] = {
   14100000,
   21100000,
   28500000,
-  35000000
-};
-
-signal_process_func_t demod_funcs[] = {
-  lsb_demod,
-  usb_demod,
-  am_demod,
+  2932000,
+  5628000,
+  6655000,
+  8951000,
+  10048000,
+  11330000,
+  13273000,
+  17904000
 };
 
 #define NO_EVENT					0

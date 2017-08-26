@@ -82,12 +82,6 @@ static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
     si5351_set_frequency(freq);
 }
 
-void
-set_tune(int hz)
-{
-  si5351_set_frequency(hz * 4);
-}
-
 static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int freq;
@@ -116,10 +110,33 @@ int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
 signal_process_func_t signal_process = am_demod;
-int32_t mode_freq_offset = AM_FREQ_OFFSET;
+int16_t mode_freq_offset = AM_FREQ_OFFSET;
 
 tlv320aic3204_agc_config_t agc_config;
 
+static signal_process_func_t demod_funcs[] = {
+  lsb_demod,
+  usb_demod,
+  am_demod,
+};
+
+static const int16_t demod_freq_offset[] = {
+  0,
+  0,
+  AM_FREQ_OFFSET
+};
+
+void set_modulation(modulation_t mod)
+{
+  signal_process = demod_funcs[mod];
+  mode_freq_offset = demod_freq_offset[mod];
+}
+
+void
+set_tune(int hz)
+{
+  si5351_set_frequency((hz + mode_freq_offset)* 4);
+}
 
 
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
@@ -365,14 +382,11 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
 
     cmd = argv[0];
     if (strncmp(cmd, "am", 1) == 0) {
-      signal_process = am_demod;
-      mode_freq_offset = AM_FREQ_OFFSET;
+      set_modulation(MOD_AM);
     } else if (strncmp(cmd, "lsb", 1) == 0) {
-      signal_process = lsb_demod;
-      mode_freq_offset = 0;
+      set_modulation(MOD_LSB);
     } else if (strncmp(cmd, "usb", 1) == 0) {
-      signal_process = usb_demod;
-      mode_freq_offset = 0;
+      set_modulation(MOD_USB);
     }
 }
 

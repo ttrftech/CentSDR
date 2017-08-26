@@ -368,7 +368,7 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     uint32_t i;
     for (i = 0; i < len/2; i++) {
       uint32_t cossin = 0x00007fff;//cos_sin(nco1_phase);
-		//nco1_phase -= PHASESTEP;
+        //nco1_phase -= PHASESTEP;
 		uint32_t iq = *s++;
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
