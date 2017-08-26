@@ -1,5 +1,28 @@
+/*
+ * Copyright (c) 2016-2017, TAKAHASHI Tomohiro (TTRFTECH) edy555@gmail.com
+ * All rights reserved.
+ *
+ * This is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * The software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Radio; see the file COPYING.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street,
+ * Boston, MA 02110-1301, USA.
+ */
 
 extern void I2CWrite(int addr, uint8_t d0, uint8_t d1);
+
+/*
+ * tlv320aic3204.c
+ */
 
 typedef struct {
   int target_level;
@@ -16,11 +39,11 @@ extern void tlv320aic3204_set_digital_gain(int gain);
 extern void tlv320aic3204_set_volume(int gain);
 extern void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf);
 
-extern void ui_init(void);
-extern void ui_process(void);
+extern void tlv320aic3204_config_adc_filter(int enable);
 
-extern void set_tune(int hz);
-
+/*
+ * dsp.c
+ */
 
 // 5ms @ 48kHz
 #define AUDIO_BUFFER_LEN 480
@@ -45,7 +68,20 @@ void set_agc_mode(int agcmode);
 //#define AM_FREQ_OFFSET 0
 #define SSB_FREQ_OFFSET 1300
 
-// font
+
+typedef struct {
+  int16_t *buffer;
+  int16_t stride;
+  int16_t count;
+  int16_t coeff;
+
+  int32_t accumlate;
+  int16_t offset;
+} dcrejection_t;
+
+/*
+ * font: Font5x7.c numfont32x24.c numfont20x24.c icons.c
+ */
 
 extern const uint16_t x5x7_bits [];
 extern const uint32_t numfont20x24[][24];
@@ -58,9 +94,11 @@ extern const uint32_t icons48x20[][20*2];
 #define S_DEGREE "\037"
 #define S_RARROW "\033"
 
+
 /*
  * ili9341.c
  */
+
 #define RGB565(b,g,r)     ( (((r)<<8)&0xf800) | (((g)<<3)&0x07e0) | (((b)>>3)&0x001f) )
 
 typedef struct {
@@ -99,9 +137,16 @@ void disp_process(void);
 void disp_fetch_samples(void);
 void disp_update(void);
 
+
 /*
  * ui.c
  */
+
+extern void ui_init(void);
+extern void ui_process(void);
+
+extern void set_tune(int hz);
+
 typedef enum {
 	MOD_LSB,
 	MOD_USB,
@@ -127,3 +172,5 @@ typedef struct {
 
 extern uistat_t uistat;
 
+
+/*EOF*/

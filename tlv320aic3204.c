@@ -74,6 +74,9 @@ void tlv320aic3204_init(void)
     I2CWrite(AIC3204_ADDR, 0x3c, 72); /* Unmute Right MICPGA, Gain selection of 32dB to make channel gain 0dB */
     I2CWrite(AIC3204_ADDR, 0x33, 0x60); /* Enable MIC bias, 2.5V */
 
+    I2CWrite(AIC3204_ADDR, 0x00, 0x08); /* Select Page 8 */
+    I2CWrite(AIC3204_ADDR, 0x01, 0x04); /* Enable Adaptive Filter mode */
+    
     wait_ms(40);
     I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
     I2CWrite(AIC3204_ADDR, 0x3f, 0xd6); /* Power up the Left and Right DAC Channels with route the Left Audio digital data to Left Channel DAC and Right Audio digital data to Right Channel DAC */
@@ -147,4 +150,60 @@ void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf)
     ctrl = ((conf->decay & 0x1f) << 3) | (conf->decay_scale & 0x7);
     I2CWrite(AIC3204_ADDR, 0x5a, ctrl); /* Left AGC Decay Time */
     I2CWrite(AIC3204_ADDR, 0x62, ctrl); /* Right AGC Decay Time */
+}
+
+// implement HPF of first order IIR
+const uint8_t adc_iir_filter_dcreject[] = {
+  /* len, page, reg, data.... */
+  /* left channel C4 - C6 */
+  12, 8, 24, 
+  /* Pg8 Reg24-35 */
+  0x7f, 0xfa, 0xda, 0x00,
+  0x80, 0x05, 0x26, 0x00,
+  0x7f, 0xf5, 0xb5, 0x00,
+    
+  /* right channel C36 - C38 */
+  12, 9, 32, 
+  /* Pg9 Reg 32-43 */
+  0x7f, 0xfa, 0xda, 0x00,
+  0x80, 0x05, 0x26, 0x00,
+  0x7f, 0xf5, 0xb5, 0x00,
+  0 /* sentinel */
+};
+
+const uint8_t adc_iir_filter_default[] = {
+  /* len, page, reg, data.... */
+  /* left channel C4 - C6 */
+  12, 8, 24, 
+  /* Pg8 Reg24-35 */
+  0x7f, 0xff, 0xff, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+    
+  /* right channel C36 - C38 */
+  12, 9, 32, 
+  /* Pg9 Reg 32-43 */
+  0x7f, 0xff, 0xff, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0 /* sentinel */
+};
+
+void tlv320aic3204_config_adc_filter(int enable)
+{
+  const uint8_t *p = adc_iir_filter_default;
+  if (enable)
+    p = adc_iir_filter_dcreject;
+  
+  while (*p != 0) {
+    uint8_t len = *p++;
+    uint8_t page = *p++;
+    uint8_t reg = *p++;
+    I2CWrite(AIC3204_ADDR, 0x00, page);
+    while (len-- > 0)
+      I2CWrite(AIC3204_ADDR, reg++, *p++);
+  }
+  I2CWrite(AIC3204_ADDR, 0x00, 0x08); /* Select Page 8 */
+  I2CWrite(AIC3204_ADDR, 0x01, 0x05); /* ADC Coefficient Buffers will be switched at next frame boundary */
+  I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Back to page 0 */
 }

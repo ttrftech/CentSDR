@@ -272,6 +272,17 @@ static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_volume(gain);
 }
 
+static void cmd_dcreject(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int value;
+    if (argc != 1) {
+        chprintf(chp, "usage: dcreject {0|1}\r\n");
+        return;
+    }
+    value = atoi(argv[0]);
+    tlv320aic3204_config_adc_filter(value);
+}
+
 static void cmd_dac(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int value;
@@ -394,6 +405,7 @@ static const ShellCommand commands[] =
     { "gain", cmd_gain },
     { "volume", cmd_volume },
     { "agc", cmd_agc },
+    { "dcreject", cmd_dcreject },
     { "mode", cmd_mode },
     { NULL, NULL }
 };
@@ -502,6 +514,7 @@ int __attribute__((noreturn)) main(void)
    * Shell manager initialization.
    */
   shellInit();
+  tlv320aic3204_config_adc_filter(1); // enable DC reject
 
 #if 0
   /*
