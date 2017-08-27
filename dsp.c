@@ -355,6 +355,8 @@ float _VSQRTF(float op1) {
   return(result);
 }
 
+int32_t ave_z = 0;
+
 void
 am_demod(int16_t *src, int16_t *dst, size_t len)
 #if defined(AM_FREQ_OFFSET) && AM_FREQ_OFFSET
@@ -367,8 +369,8 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     int32_t *d = __SIMD32(dst);
     uint32_t i;
     for (i = 0; i < len/2; i++) {
-      uint32_t cossin = 0x00007fff;//cos_sin(nco1_phase);
-        //nco1_phase -= PHASESTEP;
+        uint32_t cossin = cos_sin(nco1_phase);
+        nco1_phase -= PHASESTEP;
 		uint32_t iq = *s++;
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
@@ -379,19 +381,24 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 	arm_biquad_cascade_df1_q15(&bq_am_i, buffer_i, buffer_i2, len/2);
 	arm_biquad_cascade_df1_q15(&bq_am_q, buffer_q, buffer_q2, len/2);
 
+    int32_t acc_z = 0;
 	bufi = buffer_i2;
 	bufq = buffer_q2;
     for (i = 0; i < len/2; i++) {
       int32_t x = *bufi++;
       int32_t y = *bufq++;
       int32_t z;
-#define DCOFFSET 16383
       x = x/2;
       y = y/2;
-      z = (int16_t)_VSQRTF((float)(x*x+y*y)) - DCOFFSET;
-      //z = (int16_t)sqrtf(x*x+y*y) - DCOFFSET;
+      z = (int16_t)_VSQRTF((float)(x*x+y*y));
+      //z = (int16_t)sqrtf(x*x+y*y);
+      acc_z += z;
+      z -= ave_z;
+      if (z > 32767) z = 32767;
+      if (z < -32768) z = -32768;
       *d++ = __PKHBT(z, z, 16);
 	}
+    ave_z = ave_z * 0.98 + (0.02 * acc_z / (len/2));
 }
 #else
 {

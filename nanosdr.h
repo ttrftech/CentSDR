@@ -53,6 +53,8 @@ extern int16_t tx_buffer[];
 
 extern int16_t buffer_i[];
 extern int16_t buffer_q[];
+extern int16_t buffer_i2[];
+extern int16_t buffer_q2[];
 
 typedef void (*signal_process_func_t)(int16_t *src, int16_t *dst, size_t len);
 
@@ -64,7 +66,7 @@ void usb_demod(int16_t *src, int16_t *dst, size_t len);
 
 void set_agc_mode(int agcmode);
 
-#define AM_FREQ_OFFSET 300
+#define AM_FREQ_OFFSET 10000
 #define SSB_FREQ_OFFSET 1300
 
 
