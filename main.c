@@ -135,7 +135,7 @@ void set_modulation(modulation_t mod)
 void
 set_tune(int hz)
 {
-  si5351_set_frequency((hz + mode_freq_offset)* 4);
+  si5351_set_frequency((hz - mode_freq_offset)* 4);
 }
 
 
@@ -214,20 +214,26 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
     case 1:
       buf = tx_buffer;
       break;
+    case 2:
+      buf = buffer_i;
+      break;
+    case 3:
+      buf = buffer_i2;
+      break;
     default:
       chprintf(chp, "unknown source\r\n");
       return;
     }
   }
 
-  i2sStopExchange(&I2SD2);
+  //i2sStopExchange(&I2SD2);
   for (i = 0; i < AUDIO_BUFFER_LEN; ) {
     for (j = 0; j < 16; j++, i++) {
       chprintf(chp, "%04x ", 0xffff & (int)buf[i]);
     }
     chprintf(chp, "\r\n");
   }
-  i2sStartExchange(&I2SD2);
+  //i2sStartExchange(&I2SD2);
 }
 
 static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
@@ -259,11 +265,18 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   chprintf(chp, "average: %d %d\r\n", stat.ave[0], stat.ave[1]);
   chprintf(chp, "rms: %d %d\r\n", stat.rms[0], stat.rms[1]);
   chprintf(chp, "callback count: %d\r\n", stat.callback_count);
-  chprintf(chp, "interval cycle: %d\r\n", stat.interval_cycles);
-  chprintf(chp, "busy cycle: %d\r\n", stat.busy_cycles);
-  chprintf(chp, "load: %d\r\n", stat.busy_cycles * 100 / stat.interval_cycles);
-}
+  chprintf(chp, "load: %d (%d/%d)\r\n", stat.busy_cycles * 100 / stat.interval_cycles, stat.busy_cycles, stat.interval_cycles);
 
+  p = &tx_buffer[0];
+  acc0 = acc1 = 0;
+  for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
+    acc0 += p[i];
+    acc1 += p[i+1];
+  }
+  ave0 = acc0 / count;
+  ave1 = acc1 / count;
+  chprintf(chp, "audio average: %d %d\r\n", ave0, ave1);
+}
 
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
