@@ -227,7 +227,7 @@ ui_init(void)
 	uistat.freq = 567000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
-	uistat.volume = 8;
+	uistat.volume = 10;
 	uistat.rfgain = 60; // 0 ~ 95
 	uistat.dgain = 0; // -24 ~ 40
 	uistat.agcmode = AGC_MANUAL; //AGC_MID;
