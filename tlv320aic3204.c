@@ -66,10 +66,10 @@ void tlv320aic3204_init(void)
     I2CWrite(AIC3204_ADDR, 0x3d, 0x00); /* Select ADC PTM_R4 */
     I2CWrite(AIC3204_ADDR, 0x47, 0x32); /* Set MicPGA startup delay to 3.1ms */
     I2CWrite(AIC3204_ADDR, 0x7b, 0x01); /* Set the REF charging time to 40ms */
-    I2CWrite(AIC3204_ADDR, 0x34, 0x10); /* Route IN1L and IN2L to LEFT_P with 20K input impedance */
-    I2CWrite(AIC3204_ADDR, 0x36, 0x10); /* Route CM and IN2R to LEFT_N with 20K */
-    I2CWrite(AIC3204_ADDR, 0x37, 0x04); /* Route IN1R and IN3R to RIGHT_P with input impedance of 20K */
-    I2CWrite(AIC3204_ADDR, 0x39, 0x04); /* Route CM and IN3L to RIGHT_N with impedance of 20K */
+    I2CWrite(AIC3204_ADDR, 0x34, 0x10); /* Route IN2L to LEFT_P with 10K */
+    I2CWrite(AIC3204_ADDR, 0x36, 0x10); /* Route IN2R to LEFT_N with 10K */
+    I2CWrite(AIC3204_ADDR, 0x37, 0x04); /* Route IN3R to RIGHT_P with 10K */
+    I2CWrite(AIC3204_ADDR, 0x39, 0x04); /* Route IN3L to RIGHT_N with 10K */
     I2CWrite(AIC3204_ADDR, 0x3b, 72); /* Unmute Left MICPGA, Gain selection of 32dB to make channel gain 0dB */
     I2CWrite(AIC3204_ADDR, 0x3c, 72); /* Unmute Right MICPGA, Gain selection of 32dB to make channel gain 0dB */
     I2CWrite(AIC3204_ADDR, 0x33, 0x60); /* Enable MIC bias, 2.5V */
@@ -86,6 +86,18 @@ void tlv320aic3204_init(void)
     
     I2CWrite(AIC3204_ADDR, 0x43, 0x93); /* Enable Headphone detection, Debounce 256ms, Button Debounce 32ms */    
 }
+
+void tlv320aic3204_set_impedance(int imp)
+{
+    imp &= 3; /* 1, 2, 3 */
+    I2CWrite(AIC3204_ADDR, 0x00, 0x01); /* Select Page 1 */
+    I2CWrite(AIC3204_ADDR, 0x34, (imp << 4)); /* Route IN2L to LEFT_P */
+    I2CWrite(AIC3204_ADDR, 0x36, (imp << 4)); /* Route IN2R to LEFT_N */
+    I2CWrite(AIC3204_ADDR, 0x37, (imp << 2)); /* Route IN3R to RIGHT_P */
+    I2CWrite(AIC3204_ADDR, 0x39, (imp << 2)); /* Route IN3L to RIGHT_N */
+    I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Select Page 0 */
+}
+
 
 void tlv320aic3204_set_gain(int gain)
 {

@@ -278,6 +278,18 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   chprintf(chp, "audio average: %d %d\r\n", ave0, ave1);
 }
 
+static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int imp;
+    if (argc != 1) {
+        chprintf(chp, "usage: imp {gain(1-3)}\r\n");
+        return;
+    }
+
+    imp = atoi(argv[0]);
+    tlv320aic3204_set_impedance(imp);
+}
+
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
@@ -433,6 +445,7 @@ static const ShellCommand commands[] =
     { "volume", cmd_volume },
     { "agc", cmd_agc },
     { "dcreject", cmd_dcreject },
+    { "imp", cmd_impedance },
     { "mode", cmd_mode },
     { NULL, NULL }
 };
