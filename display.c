@@ -515,6 +515,17 @@ const int16_t winfunc_chebychef[] = {
 
 const int16_t *winfunc_table = winfunc_blackmanharris;
 
+void
+set_window_function(int wf_type)
+{
+  if (wf_type == 0)
+    winfunc_table = winfunc_blackmanharris;
+  else if (wf_type == 1)
+    winfunc_table = winfunc_hamming;
+  else if (wf_type == 2)
+    winfunc_table = winfunc_chebychef;
+}
+            
 arm_cfft_radix4_instance_q31 cfft_inst;
 
 //#define mag(r,i) (q31_t)(((q63_t)r*r)>>33)+(q31_t)(((q63_t)i*i)>>33)

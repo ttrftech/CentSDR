@@ -417,6 +417,18 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
+static void cmd_winfunc(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int type;
+    if (argc == 0) {
+      chprintf(chp, "usage: winfunc {0|1|2}\r\n");
+      return;
+    }
+
+    type = atoi(argv[0]);
+    set_window_function(type);
+}
+
 static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -449,6 +461,7 @@ static const ShellCommand commands[] =
     { "dcreject", cmd_dcreject },
     { "imp", cmd_impedance },
     { "mode", cmd_mode },
+    { "winfunc", cmd_winfunc },
     { NULL, NULL }
 };
 

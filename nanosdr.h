@@ -139,6 +139,8 @@ void disp_process(void);
 void disp_fetch_samples(void);
 void disp_update(void);
 
+void set_window_function(int wf_type);
+
 
 /*
  * ui.c
