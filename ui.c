@@ -35,23 +35,23 @@ int fetch_encoder_tick(void);
 
 #define CHANNEL_MAX 18
 
-uint32_t channel_table[CHANNEL_MAX] = {
-  567000,
-  747000,
-  1287000,
-  1440000,
-  7100000,
-  14100000,
-  21100000,
-  28500000,
-  2932000,
-  5628000,
-  6655000,
-  8951000,
-  10048000,
-  11330000,
-  13273000,
-  17904000
+const setting_t channel_table[CHANNEL_MAX] = {
+  {   567000, MOD_AM,  26*2, 0 },
+  {   747000, MOD_AM,  20*2, 0 },
+  {  1287000, MOD_AM,  23*2, 0 },
+  {  1440000, MOD_AM,  23*2, 0 },
+  {  7100000, MOD_LSB, 40*2, 0 },
+  { 14100000, MOD_USB, 40*2, 10*2 },
+  { 21100000, MOD_USB, 40*2, 10*2 },
+  { 28500000, MOD_USB, 40*2, 10*2 },
+  {  2932000, MOD_USB, 30*2, 0 },
+  {  5628000, MOD_USB, 40*2, 0 },
+  {  6655000, MOD_USB, 40*2, 0 },
+  {  8951000, MOD_USB, 40*2, 0 },
+  { 10048000, MOD_USB, 40*2, 5*2 },
+  { 11330000, MOD_USB, 40*2, 5*2 },
+  { 13273000, MOD_USB, 40*2, 10*2 },
+  { 17904000, MOD_USB, 40*2, 10*2 }
 };
 
 #define NO_EVENT					0
@@ -288,7 +288,14 @@ ui_process(void)
       } else {
         if (uistat.mode == CHANNEL) {
           uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
-          uistat.freq = channel_table[uistat.channel];
+          // apply settings at channel
+          uistat.freq = channel_table[uistat.channel].freq;
+          uistat.rfgain = channel_table[uistat.channel].rfgain;
+          uistat.dgain = channel_table[uistat.channel].dgain;
+          uistat.modulation = channel_table[uistat.channel].modulation;
+          set_gain(uistat.rfgain);
+          set_dgain(uistat.dgain);
+          set_modulation(uistat.modulation);
           update_frequency();
         } else if (uistat.mode == VOLUME) {
           uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);

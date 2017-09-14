@@ -157,20 +157,28 @@ typedef enum {
 extern void set_tune(int hz);
 extern void set_modulation(modulation_t mod);
 
+
+typedef struct {
+    uint32_t freq;
+	modulation_t modulation;
+	int8_t rfgain;
+    int8_t dgain;
+} setting_t;
+
 typedef struct {
     enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, SPDISP, MODE_MAX } mode;
-	int volume;
-	int channel;
-	uint32_t freq;
+	int8_t volume;
+	int8_t channel;
+
+    uint32_t freq;
 	modulation_t modulation;
-	int digit; /* 0~5 */
+	int8_t rfgain;
+    int8_t dgain;
+
 	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
-	int rfgain;
-	int dgain;
+	int8_t digit; /* 0~5 */
     int freq_offset;
-	enum { SPDISP_CAP0, SPDISP_CAP, SPDISP_CIC, SPDISP_FIR, SPDISP_IIR, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
-	int tp;
-	int debugmode;
+    enum { SPDISP_CAP, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
 } uistat_t;
 
 extern uistat_t uistat;
