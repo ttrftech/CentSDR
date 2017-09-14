@@ -897,6 +897,49 @@ draw_freq(void)
 	ili9341_drawfont(10, &NF32x48, x, 0, 0xffff, bg);
 }
 
+void
+draw_channel_freq(void)
+{
+	char str[10];
+	uint16_t bg = UISTAT->mode == CHANNEL ? BG_ACTIVE : BG_NORMAL;
+	int i;
+	const uint16_t xsim[] = { 0, 16, 0, 0, 0 };
+	uint16_t x = 0;
+
+    ili9341_fill(x, 0, 20*2, 24, bg);
+    itoap(UISTAT->channel, str, 2);
+	ili9341_drawfont(UISTAT->channel / 10, &NF20x24, x, 24, 0xffff, bg);
+    x += 20;
+	ili9341_drawfont(UISTAT->channel % 10, &NF20x24, x, 24, 0xffff, bg);
+    x += 20;
+
+    bg = BG_NORMAL;
+    ili9341_fill(x, 0, 52, 48, bg);
+    x += 24+12+16;
+
+    itoap(UISTAT->freq / 1000, str, 5);
+	for (i = 0; i < 5; i++) {
+		int8_t c = str[i] - '0';
+		uint16_t fg = 0xffff;
+		if (c >= 0 && c <= 9)
+			ili9341_drawfont(c, &NF32x48, x, 0, fg, bg);
+        else
+			ili9341_fill(x, 0, 32, 48, bg);
+		x += 32;
+
+		// fill gaps
+		if (xsim[i] > 0) {
+			ili9341_fill(x, 0, xsim[i], 48, bg);
+			x += xsim[i];
+		}
+	}
+	// draw kHz symbol
+	ili9341_drawfont(17, &NF20x24, x, 24, 0xffff, bg);
+    ili9341_fill(x, 0, 20, 24, bg);
+    x += 20;
+	ili9341_drawfont(10, &NF32x48, x, 0, 0xffff, bg);
+}
+
 #define FG_VOLUME 0xfffe
 #define FG_MOD 0xffe0
 
@@ -971,7 +1014,10 @@ disp_process(void)
 
   if (SPDISPINFO->update_flag & FLAG_UI) {
     draw_tick();
-    draw_freq();
+    if (UISTAT->mode == CHANNEL)
+      draw_channel_freq();
+    else
+      draw_freq();
     draw_info();
     SPDISPINFO->update_flag &= ~FLAG_UI;
   }
