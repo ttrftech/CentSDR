@@ -180,7 +180,7 @@ typedef struct {
 	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
 	int8_t digit; /* 0~5 */
     int freq_offset;
-    enum { SPDISP_CAP, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
+    enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
 } uistat_t;
 
 extern uistat_t uistat;

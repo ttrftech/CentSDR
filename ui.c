@@ -36,22 +36,22 @@ int fetch_encoder_tick(void);
 #define CHANNEL_MAX 18
 
 const setting_t channel_table[CHANNEL_MAX] = {
-  {   567000, MOD_AM,  26*2, 0 },
-  {   747000, MOD_AM,  20*2, 0 },
-  {  1287000, MOD_AM,  23*2, 0 },
-  {  1440000, MOD_AM,  23*2, 0 },
-  {  7100000, MOD_LSB, 40*2, 0 },
-  { 14100000, MOD_USB, 40*2, 10*2 },
-  { 21100000, MOD_USB, 40*2, 10*2 },
-  { 28500000, MOD_USB, 40*2, 10*2 },
-  {  2932000, MOD_USB, 30*2, 0 },
-  {  5628000, MOD_USB, 40*2, 0 },
-  {  6655000, MOD_USB, 40*2, 0 },
-  {  8951000, MOD_USB, 40*2, 0 },
-  { 10048000, MOD_USB, 40*2, 5*2 },
-  { 11330000, MOD_USB, 40*2, 5*2 },
-  { 13273000, MOD_USB, 40*2, 10*2 },
-  { 17904000, MOD_USB, 40*2, 10*2 }
+  {   567000, MOD_AM,  20*2, 0 },
+  {   747000, MOD_AM,  15*2, 0 },
+  {  1287000, MOD_AM,  20*2, 0 },
+  {  1440000, MOD_AM,  20*2, 0 },
+  {  7100000, MOD_LSB, 20*2, 0 },
+  { 14100000, MOD_USB, 20*2, 10*2 },
+  { 21100000, MOD_USB, 25*2, 10*2 },
+  { 28500000, MOD_USB, 25*2, 10*2 },
+  {  2932000, MOD_USB, 20*2, 0 },
+  {  5628000, MOD_USB, 20*2, 0 },
+  {  6655000, MOD_USB, 20*2, 0 },
+  {  8951000, MOD_USB, 20*2, 0 },
+  { 10048000, MOD_USB, 20*2, 5*2 },
+  { 11330000, MOD_USB, 20*2, 5*2 },
+  { 13273000, MOD_USB, 20*2, 10*2 },
+  { 17904000, MOD_USB, 20*2, 10*2 }
 };
 
 #define NO_EVENT					0
@@ -327,7 +327,7 @@ ui_process(void)
           set_modulation(uistat.modulation);
           update_frequency();
         } else if (uistat.mode == SPDISP) {
-          uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, 3);
+          uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, SPDISP_MODE_MAX);
         }
       }
       

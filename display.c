@@ -574,11 +574,14 @@ struct {
 	uint32_t length;
 	spectrumdisplay_param_t param;
 } spdisp_source[SPDISP_MODE_MAX] = {
+        // I/Q interleaved
+        { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN*2,
+          // sps, off, stride, gain,   origin, step, base, unit, unitname
+		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
 		{ buffer_i, buffer_q, AUDIO_BUFFER_LEN,
-          // sps, off, stride, gain,   origin, step, base, unit
 		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
 		{ buffer_i2, buffer_q2, AUDIO_BUFFER_LEN,
-		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
+		  { 48000, -160, 1, 0,	       160, 43, 0, 2, "kHz" } },
 		{ tx_buffer, NULL, AUDIO_BUFFER_LEN,
 		  { 48000,    0, 1, 0,	         0, 43, 0, 2, "kHz" } }
 };
@@ -614,6 +617,18 @@ __attribute__( ( always_inline ) ) __STATIC_INLINE uint32_t __SMULTT(uint32_t op
   __ASM volatile ("smultt %0, %1, %2" : "=r" (result) : "r" (op1), "r" (op2) );
   return(result);
 }
+__attribute__( ( always_inline ) ) __STATIC_INLINE uint32_t __SMULTB(uint32_t op1, uint32_t op2)
+{
+  uint32_t result;
+  __ASM volatile ("smultb %0, %1, %2" : "=r" (result) : "r" (op1), "r" (op2) );
+  return(result);
+}
+__attribute__( ( always_inline ) ) __STATIC_INLINE uint32_t __SMULBT(uint32_t op1, uint32_t op2)
+{
+  uint32_t result;
+  __ASM volatile ("smulbt %0, %1, %2" : "=r" (result) : "r" (op1), "r" (op2) );
+  return(result);
+}
 
 
 // copy samples from 16bit into 32bit with applying window function
@@ -629,6 +644,22 @@ window_complex_15to31(q31_t *dest, q15_t *s1, q15_t *s2, size_t length, const q1
 		*dest++ = __SMULBB(q1q2, w);
 		*dest++ = __SMULTT(i1i2, w);
 		*dest++ = __SMULTT(q1q2, w);
+	}
+}
+
+// copy samples from 16bit into 32bit with applying window function
+inline static void
+window_complex_interleaved_15to31(q31_t *dest, q15_t *src, size_t length, const q15_t *wf)
+{
+	length /= 4;
+	while (length-- > 0) {
+		uint32_t w = *__SIMD32(wf)++;
+		uint32_t i1q1 = *__SIMD32(src)++;
+		uint32_t i2q2 = *__SIMD32(src)++;
+		*dest++ = __SMULBB(i1q1, w);
+		*dest++ = __SMULTB(i1q1, w);
+		*dest++ = __SMULBT(i2q2, w);
+		*dest++ = __SMULTT(i2q2, w);
 	}
 }
 
@@ -667,10 +698,12 @@ disp_fetch_samples(void)
 
 	size_t length = spdisp_fetch_rest;
 	uint16_t mode = UISTAT->spdispmode;
-	if (length > spdisp_source[mode].length * 2)
-		length = spdisp_source[mode].length * 2;
+	if (length > spdisp_source[mode].length)
+		length = spdisp_source[mode].length;
 	if (spdisp_source[mode].qbuf == NULL) {
 		window_real_15to31(spdisp_fetch_current, spdisp_source[mode].ibuf, length, spdisp_wf_current);
+    } else if (spdisp_source[mode].ibuf == spdisp_source[mode].qbuf) {
+		window_complex_interleaved_15to31(spdisp_fetch_current, spdisp_source[mode].ibuf, length, spdisp_wf_current);
 	} else {
 		window_complex_15to31(spdisp_fetch_current, spdisp_source[mode].ibuf, spdisp_source[mode].qbuf, length, spdisp_wf_current);
 	}
@@ -706,6 +739,9 @@ draw_spectrogram(void)
 	int sx, x, y;
 	for (sx = 0; sx < 320; sx += 32) {
 		for (x = 0; x < 32; x++) {
+          uint16_t bg = 0;
+          if (sx + x == SPDISPINFO->p.origin)
+            bg = RGB565(128, 255, 128);
           int i0 = i;
           int64_t acc = 0;
           for (; i < i0 + stride; i++) {
@@ -718,13 +754,17 @@ draw_spectrogram(void)
 			//int v = log2_q31(mag) >> 6;
             // format of result of log function is 8.8 format
             //int v = (log2_i64(acc) - (36<<8)) >> 6;
-            int v = (log2_i64(acc) - (36<<8)) / 77;
+          int v = (log2_i64(acc) - (36<<8)) / 77; // 1dB/pixel
 			if (v > 64) v = 64;
 			if (v < 0) v = 0;
 			for (y = 0; y < v; y++)
 				block[63-y][x] = 0xffff;
-			for ( ; y < 64; y++)
-				block[63-y][x] = 0;
+			for ( ; y < 64; y++) {
+              block[63-y][x] = bg;
+              if (bg == 0 && y % 10 == 0)
+                // draw 10dB/ scale on background. 10dB/10pixel
+                block[63-y][x] = RGB565(15,15,15);
+            }
 			//i += stride;
 		}
 		ili9341_draw_bitmap(sx, 72, 32, 64, (uint16_t*)block);
@@ -807,7 +847,7 @@ draw_waterfall(void)
 }
 
 static void
-itoap(int value, char *buf, int dig)
+itoap(int value, char *buf, int dig, int pad)
 {
   char neg = 0;
   if (dig == 0) {
@@ -828,8 +868,43 @@ itoap(int value, char *buf, int dig)
     buf[dig--] = neg;    
   }
   while (dig >= 0) {
-    buf[dig--] = ' ';
+    buf[dig--] = pad;
   }
+}
+
+void
+draw_tick_abs(void)
+{
+	char str[10];
+	uint16_t mode = UISTAT->spdispmode;
+    SPDISPINFO->p = spdisp_source[mode].param;
+	uint16_t bg = UISTAT->mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
+	int offset = SPDISPINFO->p.origin;
+	//int step = SPDISPINFO->p.tickstep;
+	int unit = SPDISPINFO->p.tickunit;
+    float step = unit * 1024.0 / (48 * SPDISPINFO->p.stride);
+    float freq = UISTAT->freq;
+    float x;
+    
+    ili9341_fill(0, 136, 320, 16, bg);
+
+    freq -= unit * 1000 * offset / step;
+    freq /= 1000.0; // into kHz
+    float m = freq / unit;
+    m -= floor(m);
+    m *= unit;
+    freq -= m;
+    x = -m * step / unit;
+	while (x < 320) {
+      itoap((int)freq % 1000, str, 3, '0');
+      if (x >= 0)
+        ili9341_fill((int)x, 136, 2, 5, 0xffff);
+      ili9341_drawstring_5x7(str, (int)x - 7, 142, 0xffff, bg);
+      x += step;
+      freq += unit;
+	}
+
+    //ili9341_fill(offset, 136, 2, 6, RGB565(128,255,128));
 }
 
 void
@@ -837,6 +912,10 @@ draw_tick(void)
 {
 	char str[10];
 	uint16_t mode = UISTAT->spdispmode;
+    if (mode == 0) {
+      draw_tick_abs();
+      return;
+    }
     SPDISPINFO->p = spdisp_source[mode].param;
 	int x = SPDISPINFO->p.origin;
 	int base = SPDISPINFO->p.tickbase;
@@ -881,7 +960,7 @@ draw_freq(void)
 	int i;
 	const uint16_t xsim[] = { 0, 16, 0, 0, 16, 0, 0, 0 };
 	uint16_t x = 0;
-    itoap(UISTAT->freq, str, 8);
+    itoap(UISTAT->freq, str, 8, ' ');
 	for (i = 0; i < 8; i++) {
 		int8_t c = str[i] - '0';
 		uint16_t fg = 0xffff;
@@ -918,7 +997,7 @@ draw_channel_freq(void)
 	uint16_t x = 0;
 
     ili9341_fill(x, 0, 20*2, 24, bg);
-    itoap(UISTAT->channel, str, 2);
+    itoap(UISTAT->channel, str, 2, ' ');
 	ili9341_drawfont(UISTAT->channel / 10, &NF20x24, x, 24, 0xffff, bg);
     x += 20;
 	ili9341_drawfont(UISTAT->channel % 10, &NF20x24, x, 24, 0xffff, bg);
@@ -928,7 +1007,7 @@ draw_channel_freq(void)
     ili9341_fill(x, 0, 52, 48, bg);
     x += 24+12+16;
 
-    itoap(UISTAT->freq / 1000, str, 5);
+    itoap(UISTAT->freq / 1000, str, 5, ' ');
 	for (i = 0; i < 5; i++) {
 		int8_t c = str[i] - '0';
 		uint16_t fg = 0xffff;
@@ -964,7 +1043,7 @@ draw_info(void)
 	ili9341_drawfont(14, &NF20x24, x, y, FG_VOLUME, bg);
 	x += 20;
 	if (UISTAT->volume != -7)
-      itoap(UISTAT->volume, str, 2);
+      itoap(UISTAT->volume, str, 2, ' ');
 	else
 		// -infinity
 		strcpy(str, "-\003");
@@ -985,7 +1064,7 @@ draw_info(void)
       bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
       ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
       x += 20;
-      itoap(UISTAT->rfgain / 2, str, 3);
+      itoap(UISTAT->rfgain / 2, str, 3, ' ');
       strcat(str, " ");
       ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
       x += 60;
@@ -995,7 +1074,7 @@ draw_info(void)
       bg = BG_ACTIVE;
       ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
       x += 20;
-      itoap(UISTAT->dgain / 2, str, 3);
+      itoap(UISTAT->dgain / 2, str, 3, ' ');
       strcat(str, " ");
       ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
       x += 60;
