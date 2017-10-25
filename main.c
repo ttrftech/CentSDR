@@ -113,7 +113,7 @@ signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;
 
 tlv320aic3204_agc_config_t agc_config = {
-  .target_level = 5
+  .target_level = 6
 };
 
 static signal_process_func_t demod_funcs[] = {
