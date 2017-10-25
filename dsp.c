@@ -292,12 +292,21 @@ uint16_t nco2_phase = 0;
 // Bi-Quad IIR Filter state
 q15_t bq_i_state[4 * 3];
 q15_t bq_q_state[4 * 3];
-// 6th order elliptic lowpass filter fc=1300Hz
+#if 0
+// 6th order elliptic lowpass filter fc=1300Hz, 40dB
 q15_t bq_coeffs[] = {
 		  515, 0,   -906,   515, 30977, -14714,
 		 5171, 0, -10087,  5171, 31760, -15739,
 		16384, 0, -32182, 16384, 32165, -16253,
 };
+#else
+// 6th order elliptic lowpass filter fc=1300Hz, 60dB
+q15_t bq_coeffs[] = {
+		  157, 0,   -238,   157, 31237, -14936,
+		 3643, 0,  -6974,  3643, 31656, -15580,
+		 8272, 0, -16096,  8272, 32074, -16158
+};
+#endif
 
 arm_biquad_casd_df1_inst_q15 bq_i = { 3, bq_i_state, bq_coeffs, 1};
 arm_biquad_casd_df1_inst_q15 bq_q = { 3, bq_q_state, bq_coeffs, 1};
