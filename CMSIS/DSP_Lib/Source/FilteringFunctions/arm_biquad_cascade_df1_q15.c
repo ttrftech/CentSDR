@@ -140,7 +140,7 @@ void arm_biquad_cascade_df1_q15(
       /* acc +=  a1 * y[n-1] +  a2 * y[n-2] */
       acc = __SMLALD(a1, state_out, acc);
 
-      /* FIX: compensate dc offset */
+      /* FIX: compensate dc offset caused from bit shift operation */
       acc += 1 << lShift;
       
       /* The result is converted from 3.29 to 1.31 if postShift = 1, and then saturation is applied */
