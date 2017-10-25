@@ -232,3 +232,8 @@ ULIBS = -lm
 
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
+
+.PHONY: flash
+
+flash: all
+	arm-none-eabi-gdb -x flash.gdb --silent
