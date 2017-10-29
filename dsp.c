@@ -1,11 +1,8 @@
 #include <arm_math.h>
 #include "nanosdr.h"
 
-int16_t buffer_i[AUDIO_BUFFER_LEN];
-int16_t buffer_q[AUDIO_BUFFER_LEN];
-
-int16_t buffer_i2[AUDIO_BUFFER_LEN];
-int16_t buffer_q2[AUDIO_BUFFER_LEN];
+int16_t buffer[2][AUDIO_BUFFER_LEN];
+int16_t buffer2[2][AUDIO_BUFFER_LEN];
 
 
 const int16_t cos_sin_table[256][4] = {
@@ -325,8 +322,8 @@ arm_biquad_casd_df1_inst_q15 bq_am_q = { 3, bq_q_state, bq_coeffs_am, 1};
 void
 ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 {
-	q15_t *bufi = buffer_i;
-	q15_t *bufq = buffer_q;
+	q15_t *bufi = buffer[0];
+	q15_t *bufq = buffer[1];
     int32_t *s = __SIMD32(src);
     int32_t *d = __SIMD32(dst);
     uint32_t i;
@@ -342,12 +339,12 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     disp_fetch_samples();
 
     // apply low pass filter
-	arm_biquad_cascade_df1_q15(&bq_i, buffer_i, buffer_i2, len/2);
-	arm_biquad_cascade_df1_q15(&bq_q, buffer_q, buffer_q2, len/2);
+	arm_biquad_cascade_df1_q15(&bq_i, buffer[0], buffer2[0], len/2);
+	arm_biquad_cascade_df1_q15(&bq_q, buffer[1], buffer2[1], len/2);
 
     // shift frequency inverse
-	bufi = buffer_i2;
-	bufq = buffer_q2;
+	bufi = buffer2[0];
+	bufq = buffer2[1];
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco2_phase);
 		nco2_phase += phasestep;
@@ -372,8 +369,8 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 {
 #define PHASESTEP 65536L*AM_FREQ_OFFSET/48000
 
-	q15_t *bufi = buffer_i;
-	q15_t *bufq = buffer_q;
+	q15_t *bufi = buffer[0];
+	q15_t *bufq = buffer[1];
     int32_t *s = __SIMD32(src);
     int32_t *d = __SIMD32(dst);
     uint32_t i;
@@ -387,12 +384,12 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     disp_fetch_samples();
 
     // apply low pass filter
-	arm_biquad_cascade_df1_q15(&bq_am_i, buffer_i, buffer_i2, len/2);
-	arm_biquad_cascade_df1_q15(&bq_am_q, buffer_q, buffer_q2, len/2);
+	arm_biquad_cascade_df1_q15(&bq_am_i, buffer[0], buffer2[0], len/2);
+	arm_biquad_cascade_df1_q15(&bq_am_q, buffer[1], buffer2[1], len/2);
 
     int32_t acc_z = 0;
-	bufi = buffer_i2;
-	bufq = buffer_q2;
+	bufi = buffer2[0];
+	bufq = buffer2[1];
     for (i = 0; i < len/2; i++) {
       int32_t x = *bufi++;
       int32_t y = *bufq++;

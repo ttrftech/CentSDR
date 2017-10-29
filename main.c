@@ -217,10 +217,10 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
       buf = tx_buffer;
       break;
     case 2:
-      buf = buffer_i;
+      buf = buffer[0];
       break;
     case 3:
-      buf = buffer_i2;
+      buf = buffer2[0];
       break;
     default:
       chprintf(chp, "unknown source\r\n");

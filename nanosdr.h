@@ -49,13 +49,11 @@ extern void tlv320aic3204_set_impedance(int imp);
 // 5ms @ 48kHz
 #define AUDIO_BUFFER_LEN 480
 
-extern int16_t rx_buffer[];
-extern int16_t tx_buffer[];
+extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
+extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
-extern int16_t buffer_i[];
-extern int16_t buffer_q[];
-extern int16_t buffer_i2[];
-extern int16_t buffer_q2[];
+extern int16_t buffer[2][AUDIO_BUFFER_LEN];
+extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
 
 typedef void (*signal_process_func_t)(int16_t *src, int16_t *dst, size_t len);
 

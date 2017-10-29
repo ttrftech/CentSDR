@@ -561,10 +561,8 @@ typedef struct {
 	spectrumdisplay_param_t p;
 } spectrumdisplay_info_t;
 
-extern int16_t buffer_i[AUDIO_BUFFER_LEN];
-extern int16_t buffer_q[AUDIO_BUFFER_LEN];
-extern int16_t buffer_i2[AUDIO_BUFFER_LEN];
-extern int16_t buffer_q2[AUDIO_BUFFER_LEN];
+extern int16_t buffer[2][AUDIO_BUFFER_LEN];
+extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
 extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
@@ -575,20 +573,19 @@ struct {
 	spectrumdisplay_param_t param;
 } spdisp_source[SPDISP_MODE_MAX] = {
         // I/Q interleaved
-        { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN*2,
+        { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN * 2,
           // sps, off, stride, gain,   origin, step, base, unit, unitname
 		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
-		{ buffer_i, buffer_q, AUDIO_BUFFER_LEN,
+		{ buffer[0], buffer[1], AUDIO_BUFFER_LEN,
 		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
-		{ buffer_i2, buffer_q2, AUDIO_BUFFER_LEN,
-		  { 48000, -160, 1, 0,	       160, 43, 0, 2, "kHz" } },
-		{ tx_buffer, NULL, AUDIO_BUFFER_LEN,
+		{ buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
+		  { 48000, -320, 2, 0,	       160, 21, 0, 2, "kHz" } },
+		{ tx_buffer, NULL, AUDIO_BUFFER_LEN * 2,
 		  { 48000,    0, 1, 0,	         0, 43, 0, 2, "kHz" } }
 };
 
 // 320pixel = 1024pt = 48kHz
 // 35.55 pixel = 5kHz
-  
 
 #define FLAG_SPDISP 	(1<<0)
 #define FLAG_UI 		(1<<1)
