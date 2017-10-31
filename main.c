@@ -111,6 +111,7 @@ int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
 
 signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;
+int32_t center_frequency;
 
 tlv320aic3204_agc_config_t agc_config = {
   .target_level = 6
@@ -137,7 +138,8 @@ void set_modulation(modulation_t mod)
 void
 set_tune(int hz)
 {
-  si5351_set_frequency((hz - mode_freq_offset)* 4);
+  center_frequency = hz - mode_freq_offset;
+  si5351_set_frequency(center_frequency * 4);
 }
 
 

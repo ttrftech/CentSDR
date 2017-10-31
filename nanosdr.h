@@ -68,6 +68,8 @@ void set_agc_mode(int agcmode);
 #define AM_FREQ_OFFSET 10000
 #define SSB_FREQ_OFFSET 1300
 
+extern int32_t center_frequency;
+extern int16_t mode_freq_offset;
 
 typedef struct {
   int16_t *buffer;

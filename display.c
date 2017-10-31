@@ -539,6 +539,14 @@ uistat_t uistat;
 #define UISTAT (&uistat)
 
 
+// DMA double buffer
+extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
+extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
+
+// buffers for DSP
+extern int16_t buffer[2][AUDIO_BUFFER_LEN];
+extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
+
 typedef struct {
 	uint32_t sample_freq;
 	int16_t offset;
@@ -552,20 +560,6 @@ typedef struct {
 	const char *unitname;
 } spectrumdisplay_param_t;
 
-// when event sent with SEV from M4 core, filled following data
-typedef struct {
-	q31_t *buffer;
-	uint32_t buffer_rest;
-	uint8_t update_flag;
-	uint8_t ui_update_flag;
-	spectrumdisplay_param_t p;
-} spectrumdisplay_info_t;
-
-extern int16_t buffer[2][AUDIO_BUFFER_LEN];
-extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
-extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
-extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
-
 struct {
 	void *ibuf;
 	void *qbuf;
@@ -575,14 +569,25 @@ struct {
         // I/Q interleaved
         { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN * 2,
           // sps, off, stride, gain,   origin, step, base, unit, unitname
-		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
+		  { 48000, -160*3, 3, 0,	       160, 36, 0, 5, "kHz" } },
 		{ buffer[0], buffer[1], AUDIO_BUFFER_LEN,
-		  { 48000, -480, 3, 0,	       160, 36, 0, 5, "kHz" } },
+		  { 48000, -160*3, 3, 0,	       160, 36, 0, 5, "kHz" } },
 		{ buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
-		  { 48000, -320, 2, 0,	       160, 21, 0, 2, "kHz" } },
+		  { 48000, -160*2, 2, 0,	       160, 21, 0, 2, "kHz" } },
 		{ tx_buffer, NULL, AUDIO_BUFFER_LEN * 2,
-		  { 48000,    0, 1, 0,	         0, 43, 0, 2, "kHz" } }
+		  { 48000,      0, 1, 0,	         0, 43, 0, 2, "kHz" } }
 };
+
+
+// when event sent with SEV from M4 core, filled following data
+typedef struct {
+	q31_t *buffer;
+	uint32_t buffer_rest;
+	uint8_t update_flag;
+	uint8_t ui_update_flag;
+	spectrumdisplay_param_t p;
+} spectrumdisplay_info_t;
+
 
 // 320pixel = 1024pt = 48kHz
 // 35.55 pixel = 5kHz
@@ -731,13 +736,16 @@ draw_spectrogram(void)
 	//return;
 	//uint16_t gainshift = SPDISPINFO->p.overgain;
 	int i = SPDISPINFO->p.offset;
-	int stride = SPDISPINFO->p.stride;
+	int16_t stride = SPDISPINFO->p.stride;
+    int16_t tune_pos = SPDISPINFO->p.origin;
+    if (UISTAT->spdispmode == 0)
+      tune_pos += (int)mode_freq_offset*1024 / (48000 * stride);
 	uint16_t (*block)[32] = (uint16_t (*)[32])spi_buffer;
 	int sx, x, y;
 	for (sx = 0; sx < 320; sx += 32) {
 		for (x = 0; x < 32; x++) {
           uint16_t bg = 0;
-          if (sx + x == SPDISPINFO->p.origin)
+          if (sx + x == tune_pos)
             bg = RGB565(128, 255, 128);
           int i0 = i;
           int64_t acc = 0;
@@ -880,7 +888,7 @@ draw_tick_abs(void)
 	//int step = SPDISPINFO->p.tickstep;
 	int unit = SPDISPINFO->p.tickunit;
     float step = unit * 1024.0 / (48 * SPDISPINFO->p.stride);
-    float freq = UISTAT->freq;
+    float freq = center_frequency;
     float x;
     
     ili9341_fill(0, 136, 320, 16, bg);
@@ -932,7 +940,8 @@ draw_tick(void)
 	while (x < 320) {
       itoa(base, str, 10);
 		ili9341_fill(x, 136, 2, 5, 0xffff);
-		ili9341_drawstring_5x7(str, x, 142, 0xffff, bg);
+        int xx = x - strlen(str) * 5 / 2;
+		ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
 		base += SPDISPINFO->p.tickunit;
 		x += SPDISPINFO->p.tickstep;
 	}
@@ -943,7 +952,8 @@ draw_tick(void)
 	while (x >= 0) {
       itoa(base, str, 10);
 		ili9341_fill(x, 136, 2, 5, 0xffff);
-		ili9341_drawstring_5x7(str, x, 142, 0xffff, bg);
+        int xx = x - strlen(str) * 5 / 2;
+		ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
 		base -= SPDISPINFO->p.tickunit;
 		x -= SPDISPINFO->p.tickstep;
 	}
