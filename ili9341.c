@@ -261,7 +261,7 @@ void ili9341_bulk(int x, int y, int w, int h)
       ssp_senddata16(*buf++);
 }
 #else
-void ili9341_bulk(int x, int y, int w, int h)
+void ili9341_draw_bitmap(int x, int y, int w, int h, uint16_t *buf)
 {
 	uint8_t xx[4] = { x >> 8, x, (x+w-1) >> 8, (x+w-1) };
 	uint8_t yy[4] = { y >> 8, y, (y+h-1) >> 8, (y+h-1) };
@@ -271,21 +271,18 @@ void ili9341_bulk(int x, int y, int w, int h)
 	send_command(0x2B, 4, yy);
 	send_command(0x2C, 0, NULL);
 
-    dmaStreamSetMemory0(dmatx, spi_buffer);
+    dmaStreamSetMemory0(dmatx, buf);
     dmaStreamSetTransactionSize(dmatx, len);
     dmaStreamSetMode(dmatx, txdmamode | STM32_DMA_CR_MINC);
     dmaStreamEnable(dmatx);
     dmaWaitCompletion(dmatx);
 }
-#endif
 
-
-void
-ili9341_draw_bitmap(int x, int y, int w, int h, uint16_t *bitmap)
+void ili9341_bulk(int x, int y, int w, int h)
 {
-  memcpy((void*)spi_buffer, (void*)bitmap, w * h * 2);
-  ili9341_bulk(x, y, w, h);
+    ili9341_draw_bitmap(x, y, w, h, spi_buffer);
 }
+#endif
 
 void
 ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg)
