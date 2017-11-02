@@ -168,7 +168,7 @@ typedef struct {
 } setting_t;
 
 typedef struct {
-    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, DGAIN, SPDISP, MODE_MAX } mode;
+    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, SPDISP, MODE_MAX } mode;
 	int8_t volume;
 	int8_t channel;
 

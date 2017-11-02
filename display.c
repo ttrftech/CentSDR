@@ -1067,7 +1067,7 @@ draw_info(void)
 	ili9341_drawfont(UISTAT->agcmode + 3, &ICON48x20, x+2, y+2, 0xffff, bg);
 	x += 48+4;
 
-    if (UISTAT->mode != DGAIN) {
+    if (UISTAT->dgain == 0) {
       bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
       ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
       x += 20;
