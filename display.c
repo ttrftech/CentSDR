@@ -513,7 +513,7 @@ const int16_t winfunc_chebychef[] = {
    14,    14,    13,    12,    11,    10,    10,    67
 };
 
-const int16_t *winfunc_table = winfunc_blackmanharris;
+const int16_t *winfunc_table = winfunc_hamming;
 
 void
 set_window_function(int wf_type)
@@ -811,6 +811,29 @@ waterfall_init(void)
 
 #define YPOS 152
 #define HEIGHT 88
+#define BLOCK_WIDTH 46
+/* 46 * 88 = 4048 pixels < sizeof spi_buffer (4096) */
+/* 320 / 46 = 6.96  -> draw block 7 times */
+
+static inline int
+v2ypos(q31_t v)
+{
+  v >>= 22;
+  v += HEIGHT/2;
+  if (v < 0) v = 0;
+  if (v >= HEIGHT) v = HEIGHT-1;
+  return v;
+}
+
+static inline int
+inrange(int v0, int v1, int y)
+{
+  if (v0 <= v1) {
+    return v0 <= y && y <= v1;
+  } else {
+    return v1 <= y && y < v0;
+  }
+}
 
 void
 draw_waveform(void)
@@ -818,32 +841,48 @@ draw_waveform(void)
 	q31_t *buf = SPDISPINFO->buffer;
 	uint16_t bg = UISTAT->mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
     uint16_t c;
-	int x;
+	int x, y;
+    int xx;
+    int w;
     int i;
-
-    if (UISTAT->wfdispmode != WAVEFORM)
+    int i0 = v2ypos(buf[(512-160)*2-2]);
+    int q0 = v2ypos(buf[(512-160)*2-1]);
+    
+    if (UISTAT->wfdispmode == WATERFALL)
       return;
 
-	for (x = 0; x < 320; x++) {
-      q31_t v = buf[x*2 + (512-160)*2];
-      q31_t w = buf[x*2 + (512-160)*2+1];
-      v >>= 22;
-      w >>= 22;
-      v += HEIGHT/2;
-      w += HEIGHT/2;
-      if (v < 0) v = 0;
-      if (v >= HEIGHT) v = HEIGHT-1;
-      if (w < 0) w = 0;
-      if (w >= HEIGHT) w = HEIGHT-1;
-      c = bg;
-      if (x % 48 == 0)
-        c = RGB565(15,15,15);
-      for (i = 0; i < HEIGHT; i++)
-        spi_buffer[i] = c;
-      spi_buffer[HEIGHT/2] = RGB565(15,15,15);
-      spi_buffer[v] |= RGB565(255, 255, 0);
-      spi_buffer[w] |= RGB565(255, 0, 255);
-      ili9341_draw_bitmap(x, 152, 1, HEIGHT, spi_buffer);
+    xx = 0;
+	for (x = 0; x < 320; ) {
+      w = BLOCK_WIDTH;
+      if (w > (320 - x))
+        w = 320 - x;
+      for (i = 0; i < w; i++) {
+        int i1 = v2ypos(buf[(512-160)*2   + x*2]);
+        int q1 = v2ypos(buf[(512-160)*2+1 + x*2]);
+
+        for (y = 0; y < HEIGHT; y++) {
+          c = bg;
+          // draw origin line
+          if (y == HEIGHT/2)
+            c = RGB565(15,15,15);
+          // draw 1ms tick
+          if (x % 48 == 0)
+            c = RGB565(15,15,15);
+
+          if (inrange(i0, i1, y))
+            c |= RGB565(255, 255, 0);
+          if (inrange(q0, q1, y))
+            c |= RGB565(255, 0, 255);
+          
+          spi_buffer[y * w + i] = c;
+        }
+        i0 = i1;
+        q0 = q1;
+        x++;
+      }
+      
+      ili9341_draw_bitmap(xx, 152, w, HEIGHT, spi_buffer);
+      xx += i;
 	}
 }
 
@@ -1112,8 +1151,8 @@ draw_info(void)
 	ili9341_drawfont(UISTAT->agcmode + 3, &ICON48x20, x+2, y+2, 0xffff, bg);
 	x += 48+4;
 
+    bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
     if (UISTAT->dgain == 0) {
-      bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
       ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
       x += 20;
       itoap(UISTAT->rfgain / 2, str, 3, ' ');
@@ -1123,7 +1162,6 @@ draw_info(void)
       ili9341_drawfont(13, &NF20x24, x, y, 0x07ff, bg);
       x += 20;
     } else {
-      bg = BG_ACTIVE;
       ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
       x += 20;
       itoap(UISTAT->dgain / 2, str, 3, ' ');
