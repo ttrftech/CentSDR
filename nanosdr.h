@@ -168,7 +168,7 @@ typedef struct {
 } setting_t;
 
 typedef struct {
-    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, SPDISP, MODE_MAX } mode;
+    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, SPDISP, WFDISP, MODE_MAX } mode;
 	int8_t volume;
 	int8_t channel;
 
@@ -181,6 +181,7 @@ typedef struct {
 	int8_t digit; /* 0~5 */
     int freq_offset;
     enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
+    enum { WATERFALL, WAVEFORM, WFDISP_MODE_MAX } wfdispmode;
 } uistat_t;
 
 extern uistat_t uistat;

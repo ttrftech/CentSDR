@@ -809,7 +809,45 @@ waterfall_init(void)
 #endif
 }
 
-int vsa = 152;
+#define YPOS 152
+#define HEIGHT 88
+
+void
+draw_waveform(void)
+{
+	q31_t *buf = SPDISPINFO->buffer;
+	uint16_t bg = UISTAT->mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
+    uint16_t c;
+	int x;
+    int i;
+
+    if (UISTAT->wfdispmode != WAVEFORM)
+      return;
+
+	for (x = 0; x < 320; x++) {
+      q31_t v = buf[x*2 + (512-160)*2];
+      q31_t w = buf[x*2 + (512-160)*2+1];
+      v >>= 22;
+      w >>= 22;
+      v += HEIGHT/2;
+      w += HEIGHT/2;
+      if (v < 0) v = 0;
+      if (v >= HEIGHT) v = HEIGHT-1;
+      if (w < 0) w = 0;
+      if (w >= HEIGHT) w = HEIGHT-1;
+      c = bg;
+      if (x % 48 == 0)
+        c = RGB565(15,15,15);
+      for (i = 0; i < HEIGHT; i++)
+        spi_buffer[i] = c;
+      spi_buffer[HEIGHT/2] = RGB565(15,15,15);
+      spi_buffer[v] |= RGB565(255, 255, 0);
+      spi_buffer[w] |= RGB565(255, 0, 255);
+      ili9341_draw_bitmap(x, 152, 1, HEIGHT, spi_buffer);
+	}
+}
+
+static int16_t vsa = 152;
 
 void
 draw_waterfall(void)
@@ -819,8 +857,12 @@ draw_waterfall(void)
 	uint16_t *block = spi_buffer;
 	int i = SPDISPINFO->p.offset;
 	int stride = SPDISPINFO->p.stride;
-	//uint16_t gainshift = SPDISPINFO->p.overgain;
+	uint16_t bg = UISTAT->mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
+    uint16_t c;
 
+    if (UISTAT->wfdispmode != WATERFALL)
+      return;
+    
 	for (x = 0; x < 320; x++) {
         int64_t acc = 0;
         int i0 = i;
@@ -836,7 +878,10 @@ draw_waterfall(void)
         int v = (log2_i64(acc) - (34<<8)) >> 6;
 		if (v < 0) v = 0;
 		if (v > 63) v = 63;
-		*block++ = pick_color(v);
+        c = pick_color(v);
+        if (c == 0)
+          c = bg;
+		*block++ = c;
 		//i += stride;
 	}
 
@@ -1104,6 +1149,7 @@ void
 disp_process(void)
 {
   if (SPDISPINFO->update_flag & FLAG_SPDISP) {
+    draw_waveform();
     draw_spectrogram();
     draw_waterfall();
     SPDISPINFO->update_flag &= ~FLAG_SPDISP;

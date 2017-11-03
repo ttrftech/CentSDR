@@ -336,6 +336,8 @@ ui_process(void)
           update_frequency();
         } else if (uistat.mode == SPDISP) {
           uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, SPDISP_MODE_MAX);
+        } else if (uistat.mode == WFDISP) {
+          uistat.wfdispmode = minmax(uistat.wfdispmode + tick, 0, WFDISP_MODE_MAX);
         }
       }
       
