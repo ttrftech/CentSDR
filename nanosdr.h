@@ -62,6 +62,7 @@ extern signal_process_func_t signal_process;
 void am_demod(int16_t *src, int16_t *dst, size_t len);
 void lsb_demod(int16_t *src, int16_t *dst, size_t len);
 void usb_demod(int16_t *src, int16_t *dst, size_t len);
+void fm_demod(int16_t *src, int16_t *dst, size_t len);
 
 void set_agc_mode(int agcmode);
 
@@ -153,6 +154,7 @@ typedef enum {
 	MOD_LSB,
 	MOD_USB,
 	MOD_AM,
+	MOD_FM,
 	MOD_MAX
 } modulation_t;
 

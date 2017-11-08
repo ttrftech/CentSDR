@@ -121,12 +121,14 @@ static signal_process_func_t demod_funcs[] = {
   lsb_demod,
   usb_demod,
   am_demod,
+  fm_demod,
 };
 
 static const int16_t demod_freq_offset[] = {
   0,
   0,
-  AM_FREQ_OFFSET
+  AM_FREQ_OFFSET,
+  0,
 };
 
 void set_modulation(modulation_t mod)
