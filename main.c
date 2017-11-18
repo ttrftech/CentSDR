@@ -433,6 +433,24 @@ static void cmd_winfunc(BaseSequentialStream *chp, int argc, char *argv[])
     set_window_function(type);
 }
 
+static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int type;
+    if (argc == 0) {
+      chprintf(chp, "usage: show {wf|wave}\r\n");
+      return;
+    }
+
+    if (strncmp(argv[0], "wf", 2) == 0)
+      ;
+    else if (strncmp(argv[0], "wave", 4) == 0)
+      ;
+    else {
+      chprintf(chp, "usage: show {wf|wave}\r\n");
+      return;
+    }
+}
+
 static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -466,6 +484,7 @@ static const ShellCommand commands[] =
     { "imp", cmd_impedance },
     { "mode", cmd_mode },
     { "winfunc", cmd_winfunc },
+    { "show", cmd_show },
     { NULL, NULL }
 };
 

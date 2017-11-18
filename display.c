@@ -536,8 +536,6 @@ arm_cfft_radix4_instance_q31 cfft_inst;
 
 uistat_t uistat;
 
-#define UISTAT (&uistat)
-
 
 // DMA double buffer
 extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
@@ -560,43 +558,42 @@ typedef struct {
 	const char *unitname;
 } spectrumdisplay_param_t;
 
+
+// 320pixel = 1024pt = 48kHz
+// 35.55 pixel = 5kHz
+
 struct {
 	void *ibuf;
 	void *qbuf;
 	uint32_t length;
 	spectrumdisplay_param_t param;
 } spdisp_source[SPDISP_MODE_MAX] = {
-        // I/Q interleaved
-        { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN * 2,
-          // sps, off, stride, gain,   origin, step, base, unit, unitname
-		  { 48000, -160*3, 3, 0,	       160, 36, 0, 5, "kHz" } },
-		{ buffer[0], buffer[1], AUDIO_BUFFER_LEN,
-		  { 48000, -160*3, 3, 0,	       160, 36, 0, 5, "kHz" } },
-		{ buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
-		  { 48000, -160*2, 2, 0,	       160, 21, 0, 2, "kHz" } },
-		{ tx_buffer, NULL, AUDIO_BUFFER_LEN * 2,
-		  { 48000,      0, 1, 0,	         0, 43, 0, 2, "kHz" } }
+    // I/Q interleaved
+    { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN * 2,
+      // sps, off, stride, gain,   origin, step, base, unit, unitname
+      { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
+    { buffer[0], buffer[1], AUDIO_BUFFER_LEN,
+      { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
+    { buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
+      { 48000, -160*2, 2, 0,           160, 21, 0, 2, "kHz" } },
+    { tx_buffer, NULL, AUDIO_BUFFER_LEN * 2,
+      { 48000,      0, 1, 0,             0, 43, 0, 2, "kHz" } }
 };
-
 
 // when event sent with SEV from M4 core, filled following data
 typedef struct {
 	q31_t *buffer;
 	uint32_t buffer_rest;
 	uint8_t update_flag;
-	uint8_t ui_update_flag;
-	spectrumdisplay_param_t p;
-} spectrumdisplay_info_t;
+} spectrumdisplay_t;
 
-
-// 320pixel = 1024pt = 48kHz
-// 35.55 pixel = 5kHz
-
+// update_flag
 #define FLAG_SPDISP 	(1<<0)
 #define FLAG_UI 		(1<<1)
 
-spectrumdisplay_info_t spdispinfo;
-#define SPDISPINFO (&spdispinfo)
+
+spectrumdisplay_t spdispinfo;
+
 
 #define SPDISP_BUFFER_LENGTH 2048
 q31_t SPDISP_BUFFER[SPDISP_BUFFER_LENGTH];
@@ -670,7 +667,7 @@ window_real_15to31(q31_t *dest, q15_t *s1, size_t length, const q15_t *wf)
 {
   //uint32_t offset = 0x08000800;
   //uint32_t mask = 0xFFF0FFF0;
-  //uint16_t adj = spdisp_source[UISTAT->spdispmode].ibuf == CAPTUREBUFFER0;
+  //uint16_t adj = spdisp_source[uistat.spdispmode].ibuf == CAPTUREBUFFER0;
 	length /= 4;
 	while (length-- > 0) {
 		uint32_t w = *__SIMD32(wf)++;
@@ -689,7 +686,7 @@ void
 disp_fetch_samples(void)
 {
 	if (spdisp_fetch_rest == 0) {
-		if (SPDISPINFO->update_flag & FLAG_SPDISP) {
+		if (spdispinfo.update_flag & FLAG_SPDISP) {
 			// currently proccessing in M0APP
 			return;
 		}
@@ -699,7 +696,7 @@ disp_fetch_samples(void)
 	}
 
 	size_t length = spdisp_fetch_rest;
-	uint16_t mode = UISTAT->spdispmode;
+	uint16_t mode = uistat.spdispmode;
 	if (length > spdisp_source[mode].length)
 		length = spdisp_source[mode].length;
 	if (spdisp_source[mode].qbuf == NULL) {
@@ -714,9 +711,8 @@ disp_fetch_samples(void)
 	spdisp_wf_current += length/2;
 
 	if (spdisp_fetch_rest == 0) {
-		SPDISPINFO->p = spdisp_source[mode].param;
-		SPDISPINFO->buffer = SPDISP_BUFFER;
-		SPDISPINFO->update_flag |= FLAG_SPDISP;
+		spdispinfo.buffer = SPDISP_BUFFER;
+		spdispinfo.update_flag |= FLAG_SPDISP;
 	}
 }
 
@@ -727,18 +723,20 @@ disp_fetch_samples(void)
 void
 draw_spectrogram(void)
 {
-	q31_t *buf = SPDISPINFO->buffer;
+	q31_t *buf = spdispinfo.buffer;
 	arm_cfft_radix4_q31(&cfft_inst, buf);
 
 	//arm_cmplx_mag_q31(buf, buf, 1024);
 //	arm_cmplx_mag_squared_q31(buf, buf, 1024);
 	//draw_samples();
 	//return;
-	//uint16_t gainshift = SPDISPINFO->p.overgain;
-	int i = SPDISPINFO->p.offset;
-	int16_t stride = SPDISPINFO->p.stride;
-    int16_t tune_pos = SPDISPINFO->p.origin;
-    if (UISTAT->spdispmode == 0)
+	//uint16_t gainshift = spdispinfo.p.overgain;
+	uint16_t mode = uistat.spdispmode;
+    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+	int i = param->offset;
+	int16_t stride = param->stride;
+    int16_t tune_pos = param->origin;
+    if (uistat.spdispmode == 0)
       tune_pos += (int)mode_freq_offset*1024 / (48000 * stride);
 	uint16_t (*block)[32] = (uint16_t (*)[32])spi_buffer;
 	int sx, x, y;
@@ -838,8 +836,8 @@ inrange(int v0, int v1, int y)
 void
 draw_waveform(void)
 {
-	q31_t *buf = SPDISPINFO->buffer;
-	uint16_t bg = UISTAT->mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
+	q31_t *buf = spdispinfo.buffer;
+	uint16_t bg = uistat.mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
     uint16_t c;
 	int x, y;
     int xx;
@@ -847,19 +845,35 @@ draw_waveform(void)
     int i;
     int i0 = v2ypos(buf[(512-160)*2-2]);
     int q0 = v2ypos(buf[(512-160)*2-1]);
+    int i1 = v2ypos(buf[(512-160)*2+0]);
+    int q1 = v2ypos(buf[(512-160)*2+1]);
     
-    if (UISTAT->wfdispmode == WATERFALL)
+    if (uistat.wfdispmode == WATERFALL)
       return;
 
     xx = 0;
 	for (x = 0; x < 320; ) {
       w = BLOCK_WIDTH;
       if (w > (320 - x))
-        w = 320 - x;
-      for (i = 0; i < w; i++) {
-        int i1 = v2ypos(buf[(512-160)*2   + x*2]);
-        int q1 = v2ypos(buf[(512-160)*2+1 + x*2]);
+        w = 320 - x; // adjust last section width
 
+      for (i = 0; i < w; i++) {
+        int i2 = v2ypos(buf[(512-160)*2+2 + x*2]);
+        int q2 = v2ypos(buf[(512-160)*2+3 + x*2]);
+
+        int imin = i1;
+        int qmin = q1;
+        int imax = i1;
+        int qmax = q1;
+        if (imin > (i0+i1)/2) imin = (i0+i1)/2;
+        if (imax < (i0+i1)/2) imax = (i0+i1)/2;
+        if (imin > (i1+i2)/2) imin = (i1+i2)/2;
+        if (imax < (i1+i2)/2) imax = (i1+i2)/2;
+        if (qmin > (q0+q1)/2) qmin = (q0+q1)/2;
+        if (qmax < (q0+q1)/2) qmax = (q0+q1)/2;
+        if (qmin > (q1+q2)/2) qmin = (q1+q2)/2;
+        if (qmax < (q1+q2)/2) qmax = (q1+q2)/2;
+        
         for (y = 0; y < HEIGHT; y++) {
           c = bg;
           // draw origin line
@@ -869,15 +883,17 @@ draw_waveform(void)
           if (x % 48 == 0)
             c = RGB565(15,15,15);
 
-          if (inrange(i0, i1, y))
+          if (y == i1 || (imin < y && y <= imax))
             c |= RGB565(255, 255, 0);
-          if (inrange(q0, q1, y))
+          if (y == q1 || (qmin < y && y <= qmax))
             c |= RGB565(255, 0, 255);
           
           spi_buffer[y * w + i] = c;
         }
         i0 = i1;
         q0 = q1;
+        i1 = i2;
+        q1 = q2;
         x++;
       }
       
@@ -892,14 +908,16 @@ void
 draw_waterfall(void)
 {
 	int x;
-	q31_t *buf = SPDISPINFO->buffer;
+	q31_t *buf = spdispinfo.buffer;
+	uint16_t mode = uistat.spdispmode;
+    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
 	uint16_t *block = spi_buffer;
-	int i = SPDISPINFO->p.offset;
-	int stride = SPDISPINFO->p.stride;
-	uint16_t bg = UISTAT->mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
+	int i = param->offset;
+	int stride = param->stride;
+	uint16_t bg = uistat.mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
     uint16_t c;
 
-    if (UISTAT->wfdispmode != WATERFALL)
+    if (uistat.wfdispmode != WATERFALL)
       return;
     
 	for (x = 0; x < 320; x++) {
@@ -965,13 +983,13 @@ void
 draw_tick_abs(void)
 {
 	char str[10];
-	uint16_t mode = UISTAT->spdispmode;
-    SPDISPINFO->p = spdisp_source[mode].param;
-	uint16_t bg = UISTAT->mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
-	int offset = SPDISPINFO->p.origin;
-	//int step = SPDISPINFO->p.tickstep;
-	int unit = SPDISPINFO->p.tickunit;
-    float step = unit * 1024.0 / (48 * SPDISPINFO->p.stride);
+	uint16_t mode = uistat.spdispmode;
+    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+	uint16_t bg = uistat.mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
+	int offset = param->origin;
+	//int step = param->tickstep;
+	int unit = param->tickunit;
+    float step = unit * 1024.0 / (48 * param->stride);
     float freq = center_frequency;
     float x;
     
@@ -1000,46 +1018,46 @@ void
 draw_tick(void)
 {
 	char str[10];
-	uint16_t mode = UISTAT->spdispmode;
+	uint16_t mode = uistat.spdispmode;
     if (mode == 0) {
       draw_tick_abs();
       return;
     }
-    SPDISPINFO->p = spdisp_source[mode].param;
-	int x = SPDISPINFO->p.origin;
-	int base = SPDISPINFO->p.tickbase;
+    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+	int x = param->origin;
+	int base = param->tickbase;
 	int xx;
-	uint16_t bg = UISTAT->mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = uistat.mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
 
 	ili9341_fill(0, 136, 320, 16, bg);
     itoa(base, str, 10);
-    strcat(str, SPDISPINFO->p.unitname);
+    strcat(str, param->unitname);
 	xx = x - strlen(str) * 5 / 2;
 	if (xx < 0) xx = 0;
 	ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
 	ili9341_fill(x, 136, 2, 5, 0xffff);
 
-	base += SPDISPINFO->p.tickunit;
-	x += SPDISPINFO->p.tickstep;
+	base += param->tickunit;
+	x += param->tickstep;
 	while (x < 320) {
       itoa(base, str, 10);
 		ili9341_fill(x, 136, 2, 5, 0xffff);
         int xx = x - strlen(str) * 5 / 2;
 		ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
-		base += SPDISPINFO->p.tickunit;
-		x += SPDISPINFO->p.tickstep;
+		base += param->tickunit;
+		x += param->tickstep;
 	}
-	x = SPDISPINFO->p.origin;
-	base = SPDISPINFO->p.tickbase;
-	base -= SPDISPINFO->p.tickunit;
-	x -= SPDISPINFO->p.tickstep;
+	x = param->origin;
+	base = param->tickbase;
+	base -= param->tickunit;
+	x -= param->tickstep;
 	while (x >= 0) {
       itoa(base, str, 10);
 		ili9341_fill(x, 136, 2, 5, 0xffff);
         int xx = x - strlen(str) * 5 / 2;
 		ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
-		base -= SPDISPINFO->p.tickunit;
-		x -= SPDISPINFO->p.tickstep;
+		base -= param->tickunit;
+		x -= param->tickstep;
 	}
 }
 
@@ -1047,16 +1065,16 @@ void
 draw_freq(void)
 {
 	char str[10];
-	uint16_t bg = UISTAT->mode == FREQ ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = uistat.mode == FREQ ? BG_ACTIVE : BG_NORMAL;
 	int i;
 	const uint16_t xsim[] = { 0, 16, 0, 0, 16, 0, 0, 0 };
 	uint16_t x = 0;
-    itoap(UISTAT->freq, str, 8, ' ');
+    itoap(uistat.freq, str, 8, ' ');
 	for (i = 0; i < 8; i++) {
 		int8_t c = str[i] - '0';
 		uint16_t fg = 0xffff;
         int focused = FALSE;
-		if (UISTAT->mode == FREQ && UISTAT->digit == 7-i) {
+		if (uistat.mode == FREQ && uistat.digit == 7-i) {
             fg = RGB565(128,255,128);
             focused = TRUE;
         }
@@ -1082,23 +1100,23 @@ void
 draw_channel_freq(void)
 {
 	char str[10];
-	uint16_t bg = UISTAT->mode == CHANNEL ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = uistat.mode == CHANNEL ? BG_ACTIVE : BG_NORMAL;
 	int i;
 	const uint16_t xsim[] = { 0, 16, 0, 0, 0 };
 	uint16_t x = 0;
 
     ili9341_fill(x, 0, 20*2, 24, bg);
-    itoap(UISTAT->channel, str, 2, ' ');
-	ili9341_drawfont(UISTAT->channel / 10, &NF20x24, x, 24, 0xffff, bg);
+    itoap(uistat.channel, str, 2, ' ');
+	ili9341_drawfont(uistat.channel / 10, &NF20x24, x, 24, 0xffff, bg);
     x += 20;
-	ili9341_drawfont(UISTAT->channel % 10, &NF20x24, x, 24, 0xffff, bg);
+	ili9341_drawfont(uistat.channel % 10, &NF20x24, x, 24, 0xffff, bg);
     x += 20;
 
     bg = BG_NORMAL;
     ili9341_fill(x, 0, 52, 48, bg);
     x += 24+12+16;
 
-    itoap(UISTAT->freq / 1000, str, 5, ' ');
+    itoap(uistat.freq / 1000, str, 5, ' ');
 	for (i = 0; i < 5; i++) {
 		int8_t c = str[i] - '0';
 		uint16_t fg = 0xffff;
@@ -1130,11 +1148,11 @@ draw_info(void)
 	char str[10];
 	int x = 0;
 	int y = 48;
-	uint16_t bg = UISTAT->mode == VOLUME ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = uistat.mode == VOLUME ? BG_ACTIVE : BG_NORMAL;
 	ili9341_drawfont(14, &NF20x24, x, y, FG_VOLUME, bg);
 	x += 20;
-	if (UISTAT->volume != -7)
-      itoap(UISTAT->volume, str, 2, ' ');
+	if (uistat.volume != -7)
+      itoap(uistat.volume, str, 2, ' ');
 	else
 		// -infinity
 		strcpy(str, "-\003");
@@ -1143,19 +1161,19 @@ draw_info(void)
 	ili9341_drawfont(13, &NF20x24, x, y, FG_VOLUME, bg);
 	x += 20;
 
-	bg = UISTAT->mode == MOD ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(UISTAT->modulation, &ICON48x20, x+2, y+2, FG_MOD, bg);
+	bg = uistat.mode == MOD ? BG_ACTIVE : BG_NORMAL;
+	ili9341_drawfont(uistat.modulation, &ICON48x20, x+2, y+2, FG_MOD, bg);
 	x += 48+4;
 
-	bg = UISTAT->mode == AGC ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(UISTAT->agcmode + 4, &ICON48x20, x+2, y+2, 0xffff, bg);
+	bg = uistat.mode == AGC ? BG_ACTIVE : BG_NORMAL;
+	ili9341_drawfont(uistat.agcmode + 4, &ICON48x20, x+2, y+2, 0xffff, bg);
 	x += 48+4;
 
-    bg = UISTAT->mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
-    if (UISTAT->dgain == 0) {
+    bg = uistat.mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
+    if (uistat.dgain == 0) {
       ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
       x += 20;
-      itoap(UISTAT->rfgain / 2, str, 3, ' ');
+      itoap(uistat.rfgain / 2, str, 3, ' ');
       strcat(str, " ");
       ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
       x += 60;
@@ -1164,7 +1182,7 @@ draw_info(void)
     } else {
       ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
       x += 20;
-      itoap(UISTAT->dgain / 2, str, 3, ' ');
+      itoap(uistat.dgain / 2, str, 3, ' ');
       strcat(str, " ");
       ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
       x += 60;
@@ -1186,28 +1204,28 @@ clear_background(void)
 void
 disp_process(void)
 {
-  if (SPDISPINFO->update_flag & FLAG_SPDISP) {
+  if (spdispinfo.update_flag & FLAG_SPDISP) {
     draw_waveform();
     draw_spectrogram();
     draw_waterfall();
-    SPDISPINFO->update_flag &= ~FLAG_SPDISP;
+    spdispinfo.update_flag &= ~FLAG_SPDISP;
   }
 
-  if (SPDISPINFO->update_flag & FLAG_UI) {
+  if (spdispinfo.update_flag & FLAG_UI) {
     draw_tick();
-    if (UISTAT->mode == CHANNEL)
+    if (uistat.mode == CHANNEL)
       draw_channel_freq();
     else
       draw_freq();
     draw_info();
-    SPDISPINFO->update_flag &= ~FLAG_UI;
+    spdispinfo.update_flag &= ~FLAG_UI;
   }
 }
 
 void
 disp_update(void)
 {
-  SPDISPINFO->update_flag |= FLAG_UI;
+  spdispinfo.update_flag |= FLAG_UI;
 }
    
 void
@@ -1216,6 +1234,5 @@ disp_init(void)
   arm_cfft_radix4_init_q31(&cfft_inst, 1024, FALSE, TRUE);
   waterfall_init();
   clear_background();
-  SPDISPINFO->p = spdisp_source[0].param;
-  SPDISPINFO->update_flag = FLAG_UI;
+  spdispinfo.update_flag = FLAG_UI;
 }
