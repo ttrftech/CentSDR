@@ -14,22 +14,38 @@
 #include <stm32f303xc.h>
 
 
-#if 0
+
+static struct {
+  int32_t rms[2];
+  int16_t ave[2];
+
+  uint32_t callback_count;
+  int32_t last_counter_value;
+  int32_t interval_cycles;
+  int32_t busy_cycles;
+
+  uint16_t fps_count;
+  uint16_t fps;
+  uint16_t overflow_count;
+  uint16_t overflow;
+} stat;
+
+
 static THD_WORKING_AREA(waThread1, 128);
 static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
 {
     (void)arg;
     chRegSetThreadName("blink");
-    while (1)
-    {
-    systime_t time = serusbcfg.usbp->state == USB_ACTIVE ? 250 : 500;
-	//palClearPad(GPIOC, GPIOC_LED);
-	chThdSleepMilliseconds(time);
-	//palSetPad(GPIOC, GPIOC_LED);
-	chThdSleepMilliseconds(time);
+    while (1) {
+      systime_t time = 1000;
+      chThdSleepMilliseconds(time);
+
+      stat.fps = stat.fps_count;
+      stat.fps_count = 0;
+      stat.overflow = stat.overflow_count;
+      stat.overflow_count = 0;
     }
 }
-#endif
 
 static void cmd_reset(BaseSequentialStream *chp, int argc, char *argv[])
 {
@@ -95,16 +111,6 @@ static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
 
 
 
-
-static struct {
-  int16_t rms[2];
-  int16_t ave[2];
-  int callback_count;
-
-  int32_t last_counter_value;
-  int32_t interval_cycles;
-  int32_t busy_cycles;
-} stat;
 
 int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
@@ -245,8 +251,10 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
 static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
 {
   int16_t *p = &rx_buffer[0];
-  int32_t acc0, acc1;
+  int64_t acc0, acc1;
   int32_t ave0, ave1;
+  int16_t min0 = 0, min1 = 0;
+  int16_t max0 = 0, max1 = 0;
   int32_t count = AUDIO_BUFFER_LEN;
   int i;
   (void)argc;
@@ -255,24 +263,40 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
     acc0 += p[i];
     acc1 += p[i+1];
+    if (min0 > p[i]) min0 = p[i];
+    if (min1 > p[i+1]) min1 = p[i+1];
+    if (max0 < p[i]) max0 = p[i];
+    if (max1 < p[i+1]) max1 = p[i+1];
   }
   ave0 = acc0 / count;
   ave1 = acc1 / count;
   acc0 = acc1 = 0;
+  double accx0 = 0, accx1 = 0;
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
-    acc0 += (p[i] - ave0)*(p[i] - ave0);
-    acc1 += (p[i+1] - ave1)*(p[i+1] - ave1);
+    float x0 = p[i] - ave0;
+    float x1 = p[i+1] - ave1;
+    accx0 += x0 * x0;
+    accx1 += x1 * x1;
+    //acc0 += ((int32_t)p[i] - ave0)*((int32_t)p[i] - ave0);
+    //acc1 += ((int32_t)p[i+1] - ave1)*((int32_t)p[i+1] - ave1);
   }
-  stat.rms[0] = sqrt(acc0 / count);
-  stat.rms[1] = sqrt(acc1 / count);
+  stat.rms[0] = sqrtf(accx0 / count);
+  stat.rms[1] = sqrtf(accx1 / count);
   stat.ave[0] = ave0;
   stat.ave[1] = ave1;
 
   chprintf(chp, "average: %d %d\r\n", stat.ave[0], stat.ave[1]);
   chprintf(chp, "rms: %d %d\r\n", stat.rms[0], stat.rms[1]);
+  chprintf(chp, "min: %d %d\r\n", min0, min1);
+  chprintf(chp, "max: %d %d\r\n", max0, max1);
   chprintf(chp, "callback count: %d\r\n", stat.callback_count);
-  chprintf(chp, "load: %d (%d/%d)\r\n", stat.busy_cycles * 100 / stat.interval_cycles, stat.busy_cycles, stat.interval_cycles);
-
+  chprintf(chp, "load: %d%% (%d/%d)\r\n", stat.busy_cycles * 100 / stat.interval_cycles, stat.busy_cycles, stat.interval_cycles);
+  chprintf(chp, "fps: %d\r\n", stat.fps);
+  chprintf(chp, "overflow: %d\r\n", stat.overflow);
+  int gain0 = tlv320aic3204_get_left_agc_gain();
+  int gain1 = tlv320aic3204_get_right_agc_gain();
+  chprintf(chp, "agc gain: %d %d\r\n", gain0, gain1);
+  
   p = &tx_buffer[0];
   acc0 = acc1 = 0;
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
@@ -282,6 +306,11 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   ave0 = acc0 / count;
   ave1 = acc1 / count;
   chprintf(chp, "audio average: %d %d\r\n", ave0, ave1);
+
+  extern int log2_q31(int32_t x);
+  int dbm = 6 * log2_q31(stat.rms[0]) - (gain0 << 7); // 8.8 fmt
+  dbm -= 116 << 8;
+  chprintf(chp, "power: %d.%02d dBm\r\n", dbm >> 8, ((dbm&0xff) * 100) >> 8);
 }
 
 static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
@@ -435,7 +464,6 @@ static void cmd_winfunc(BaseSequentialStream *chp, int argc, char *argv[])
 
 static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
 {
-    int type;
     if (argc == 0) {
       chprintf(chp, "usage: show {wf|wave}\r\n");
       return;
@@ -498,6 +526,13 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread2, arg)
       disp_process();
       ui_process();
       chThdSleepMilliseconds(10);
+      stat.fps_count++;
+
+      {
+        int flag = tlv320aic3204_get_sticky_flag_register();
+        if (flag & AIC3204_STICKY_ADC_OVERFLOW)
+          stat.overflow_count++;
+      }
     }
 }
 
@@ -594,12 +629,10 @@ int __attribute__((noreturn)) main(void)
   shellInit();
   tlv320aic3204_config_adc_filter(1); // enable DC reject
 
-#if 0
   /*
    * Creates the blinker thread.
    */
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
-#endif
 
 #if 1
   ui_init();

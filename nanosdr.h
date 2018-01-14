@@ -19,6 +19,10 @@
  */
 
 extern void I2CWrite(int addr, uint8_t d0, uint8_t d1);
+extern int I2CRead(int addr, uint8_t d0);
+
+extern uint16_t fps_count;
+extern uint16_t overflow_count;
 
 /*
  * tlv320aic3204.c
@@ -41,6 +45,12 @@ extern void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf);
 
 extern void tlv320aic3204_config_adc_filter(int enable);
 extern void tlv320aic3204_set_impedance(int imp);
+
+extern int tlv320aic3204_get_sticky_flag_register(void);
+extern int8_t tlv320aic3204_get_left_agc_gain(void);
+extern int8_t tlv320aic3204_get_right_agc_gain(void);
+
+#define AIC3204_STICKY_ADC_OVERFLOW 0x0c
 
 /*
  * dsp.c

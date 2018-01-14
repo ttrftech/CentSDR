@@ -219,3 +219,19 @@ void tlv320aic3204_config_adc_filter(int enable)
   I2CWrite(AIC3204_ADDR, 0x01, 0x05); /* ADC Coefficient Buffers will be switched at next frame boundary */
   I2CWrite(AIC3204_ADDR, 0x00, 0x00); /* Back to page 0 */
 }
+
+int tlv320aic3204_get_sticky_flag_register(void)
+{
+    return I2CRead(AIC3204_ADDR, 0x2a); /* Sticky Flag Register */
+}
+
+int8_t tlv320aic3204_get_left_agc_gain(void)
+{
+    return I2CRead(AIC3204_ADDR, 0x5d); /* Left Channel AGC Gain Flag */
+}
+
+int8_t tlv320aic3204_get_right_agc_gain(void)
+{
+    return I2CRead(AIC3204_ADDR, 0x65); /* Right Channel AGC Gain Flag */
+}
+

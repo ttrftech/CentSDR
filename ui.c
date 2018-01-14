@@ -224,14 +224,15 @@ ui_init(void)
 #endif
 
     uistat.mode = CHANNEL;
-	uistat.channel = 0;
-	uistat.freq = 567000;
+	uistat.channel = 1;
+	uistat.freq = 747000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
 	uistat.volume = 10;
 	uistat.rfgain = 60; // 0 ~ 95
 	uistat.dgain = 0; // -24 ~ 40
-	uistat.agcmode = AGC_MANUAL; //AGC_MID;
+	//uistat.agcmode = AGC_MANUAL;
+    uistat.agcmode = AGC_MID;
 	//ui_update();
 
 	set_volume(uistat.volume);

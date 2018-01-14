@@ -8,7 +8,7 @@
 #include "arm_math.h"
 
 // result is 8.8 format
-static inline uint16_t
+uint16_t
 log2_q31(uint32_t x)
 {
 	uint32_t mask = 0xffff0000;
