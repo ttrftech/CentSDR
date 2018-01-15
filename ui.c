@@ -224,7 +224,7 @@ ui_init(void)
 #endif
 
     uistat.mode = CHANNEL;
-	uistat.channel = 1;
+	uistat.channel = 0;
 	uistat.freq = 747000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;

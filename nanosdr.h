@@ -21,8 +21,7 @@
 extern void I2CWrite(int addr, uint8_t d0, uint8_t d1);
 extern int I2CRead(int addr, uint8_t d0);
 
-extern uint16_t fps_count;
-extern uint16_t overflow_count;
+extern int16_t measured_power_dbm;
 
 /*
  * tlv320aic3204.c

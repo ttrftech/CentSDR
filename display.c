@@ -1170,24 +1170,34 @@ draw_info(void)
 	x += 48+4;
 
     bg = uistat.mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
-    if (uistat.dgain == 0) {
-      ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg);
-      x += 20;
-      itoap(uistat.rfgain / 2, str, 3, ' ');
-      strcat(str, " ");
-      ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
-      x += 60;
-      ili9341_drawfont(13, &NF20x24, x, y, 0x07ff, bg);
-      x += 20;
+    if (uistat.agcmode) {
+      ili9341_drawfont(10, &NF20x24, x+80-2, y, 0xffff, bg); // period
+      itoap(measured_power_dbm >> 8, str, 4, ' ');
+      ili9341_drawfont_string(str, &NF20x24, x, y, 0xffff, bg);
+      itoap(((measured_power_dbm & 0xff) * 10) >> 8, str, 1, ' ');
+      ili9341_drawfont_string(str, &NF20x24, x+100-4, y, 0xffff, bg);
+      x += 120-4;
+      ili9341_drawfont(13, &NF20x24, x, y, 0xffff, bg); // dB
     } else {
-      ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
-      x += 20;
-      itoap(uistat.dgain / 2, str, 3, ' ');
-      strcat(str, " ");
-      ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
-      x += 60;
-      ili9341_drawfont(13, &NF20x24, x, y, 0x070f, bg);
-      x += 20;
+      if (uistat.dgain == 0) {
+        ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg); // ANT Mark
+        x += 20;
+        itoap(uistat.rfgain / 2, str, 3, ' ');
+        strcat(str, "   ");
+        ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
+        x += 60;
+        ili9341_drawfont(13, &NF20x24, x, y, 0x07ff, bg); // dB
+        x += 20;
+      } else {
+        ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
+        x += 20;
+        itoap(uistat.dgain / 2, str, 3, ' ');
+        strcat(str, "   ");
+        ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
+        x += 60;
+        ili9341_drawfont(13, &NF20x24, x, y, 0x070f, bg);
+        x += 20;
+      }
     }
 }
 

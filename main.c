@@ -18,6 +18,8 @@
 static struct {
   int32_t rms[2];
   int16_t ave[2];
+  int16_t min[2];
+  int16_t max[2];
 
   uint32_t callback_count;
   int32_t last_counter_value;
@@ -30,20 +32,30 @@ static struct {
   uint16_t overflow;
 } stat;
 
+static void calc_stat(void);
+static void measure_power_dbm(void);
 
 static THD_WORKING_AREA(waThread1, 128);
 static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
 {
     (void)arg;
+    int count;
     chRegSetThreadName("blink");
     while (1) {
-      systime_t time = 1000;
+      systime_t time = 100;
       chThdSleepMilliseconds(time);
 
-      stat.fps = stat.fps_count;
-      stat.fps_count = 0;
-      stat.overflow = stat.overflow_count;
-      stat.overflow_count = 0;
+      calc_stat();      
+      measure_power_dbm();
+      disp_update();
+
+      if (++count == 10) {
+        stat.fps = stat.fps_count;
+        stat.fps_count = 0;
+        stat.overflow = stat.overflow_count;
+        stat.overflow_count = 0;
+        count = 0;
+      }
     }
 }
 
@@ -248,7 +260,8 @@ static void cmd_data(BaseSequentialStream *chp, int argc, char *argv[])
   //i2sStartExchange(&I2SD2);
 }
 
-static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
+static void
+calc_stat(void)
 {
   int16_t *p = &rx_buffer[0];
   int64_t acc0, acc1;
@@ -257,8 +270,6 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   int16_t max0 = 0, max1 = 0;
   int32_t count = AUDIO_BUFFER_LEN;
   int i;
-  (void)argc;
-  (void)argv;
   acc0 = acc1 = 0;
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
     acc0 += p[i];
@@ -271,7 +282,7 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   ave0 = acc0 / count;
   ave1 = acc1 / count;
   acc0 = acc1 = 0;
-  double accx0 = 0, accx1 = 0;
+  float accx0 = 0, accx1 = 0;
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
     float x0 = p[i] - ave0;
     float x1 = p[i+1] - ave1;
@@ -284,11 +295,33 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   stat.rms[1] = sqrtf(accx1 / count);
   stat.ave[0] = ave0;
   stat.ave[1] = ave1;
+  stat.min[0] = min0;
+  stat.min[1] = min1;
+  stat.max[0] = max0;
+  stat.max[1] = max1;
+}  
+
+int16_t measured_power_dbm;
+
+static void
+measure_power_dbm(void)
+{
+  extern int log2_q31(int32_t x);
+  int agcgain = tlv320aic3204_get_left_agc_gain();  
+  int dbm = 6 * log2_q31(stat.rms[0]) - (agcgain << 7); // 8.8 fmt
+  dbm -= 116 << 8;
+  measured_power_dbm = dbm;
+}
+
+static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
 
   chprintf(chp, "average: %d %d\r\n", stat.ave[0], stat.ave[1]);
   chprintf(chp, "rms: %d %d\r\n", stat.rms[0], stat.rms[1]);
-  chprintf(chp, "min: %d %d\r\n", min0, min1);
-  chprintf(chp, "max: %d %d\r\n", max0, max1);
+  chprintf(chp, "min: %d %d\r\n", stat.min[0], stat.min[1]);
+  chprintf(chp, "max: %d %d\r\n", stat.max[0], stat.max[1]);
   chprintf(chp, "callback count: %d\r\n", stat.callback_count);
   chprintf(chp, "load: %d%% (%d/%d)\r\n", stat.busy_cycles * 100 / stat.interval_cycles, stat.busy_cycles, stat.interval_cycles);
   chprintf(chp, "fps: %d\r\n", stat.fps);
@@ -297,6 +330,7 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   int gain1 = tlv320aic3204_get_right_agc_gain();
   chprintf(chp, "agc gain: %d %d\r\n", gain0, gain1);
   
+#if 0
   p = &tx_buffer[0];
   acc0 = acc1 = 0;
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
@@ -306,11 +340,10 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   ave0 = acc0 / count;
   ave1 = acc1 / count;
   chprintf(chp, "audio average: %d %d\r\n", ave0, ave1);
-
-  extern int log2_q31(int32_t x);
-  int dbm = 6 * log2_q31(stat.rms[0]) - (gain0 << 7); // 8.8 fmt
-  dbm -= 116 << 8;
-  chprintf(chp, "power: %d.%02d dBm\r\n", dbm >> 8, ((dbm&0xff) * 100) >> 8);
+#endif
+  
+  chprintf(chp, "power: %d.%01ddBm\r\n", measured_power_dbm >> 8,
+           ((measured_power_dbm&0xff) * 10) >> 8);
 }
 
 static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
