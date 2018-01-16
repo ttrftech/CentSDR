@@ -258,7 +258,10 @@ ui_process(void)
     int tick = fetch_encoder_tick();
 	int n;
     if (status & EVT_BUTTON_SINGLE_CLICK) {
-      uistat.mode = (uistat.mode + 1) % MODE_MAX;
+      uistat.mode++;
+      if (uistat.agcmode != 0 && uistat.mode == RFGAIN)
+        uistat.mode++;
+      uistat.mode %= MODE_MAX;
       disp_update();
     }
     if (tick != 0) {
@@ -279,10 +282,16 @@ ui_process(void)
               uistat.mode++;
           }
         } else {
-          if (tick < 0)
+          if (tick < 0) {
             uistat.mode--;
-          if (tick > 0)
+            if (uistat.agcmode != 0 && uistat.mode == RFGAIN)
+              uistat.mode--;
+          }
+          if (tick > 0) {
             uistat.mode++;
+            if (uistat.agcmode != 0 && uistat.mode == RFGAIN)
+              uistat.mode++;
+          }
           uistat.mode = uistat.mode % MODE_MAX;
         }
         disp_update();
