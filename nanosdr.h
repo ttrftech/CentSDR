@@ -34,6 +34,7 @@ typedef struct {
   int attack_scale;
   int decay;
   int decay_scale;
+  int maximum_gain;
 } tlv320aic3204_agc_config_t;
 
 extern void tlv320aic3204_init(void);
@@ -148,6 +149,7 @@ void disp_init(void);
 void disp_process(void);
 void disp_fetch_samples(void);
 void disp_update(void);
+void disp_update_power(void);
 
 void set_window_function(int wf_type);
 
@@ -174,8 +176,7 @@ extern void set_modulation(modulation_t mod);
 typedef struct {
     uint32_t freq;
 	modulation_t modulation;
-	int8_t rfgain;
-    int8_t dgain;
+	int16_t rfgain;
 } setting_t;
 
 typedef struct {
@@ -186,7 +187,6 @@ typedef struct {
     uint32_t freq;
 	modulation_t modulation;
 	int8_t rfgain;
-    int8_t dgain;
 
 	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
 	int8_t digit; /* 0~5 */

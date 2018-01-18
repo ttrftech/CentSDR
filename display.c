@@ -589,7 +589,8 @@ typedef struct {
 
 // update_flag
 #define FLAG_SPDISP 	(1<<0)
-#define FLAG_UI 		(1<<1)
+#define FLAG_POWER 		(1<<1)
+#define FLAG_UI 		(1<<2)
 
 
 spectrumdisplay_t spdispinfo;
@@ -1142,6 +1143,24 @@ draw_channel_freq(void)
 #define FG_VOLUME 0xfffe
 #define FG_MOD 0xffe0
 
+
+void
+draw_db(int db, int x, int y, int16_t fg, int16_t bg)
+{
+  char str[10];
+  ili9341_drawfont(10, &NF20x24, x+80-5, y, fg, bg); // period
+  int d = db >> 8;
+  if (d < 0 && (db & 0xff))
+    d++;
+  itoap(d, str, 4, ' ');
+  ili9341_drawfont_string(str, &NF20x24, x, y, fg, bg);
+  if (db < 0) db = 0x100 - (db & 0xff);
+  itoap(((db & 0xff) * 10) >> 8, str, 1, ' ');
+  ili9341_drawfont_string(str, &NF20x24, x+100-10, y, fg, bg);
+  x += 120-10;
+  ili9341_drawfont(13, &NF20x24, x, y, fg, bg); // dB
+}
+
 void
 draw_info(void)
 {
@@ -1170,35 +1189,23 @@ draw_info(void)
 	x += 48+4;
 
     bg = uistat.mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
-    if (uistat.agcmode) {
-      ili9341_drawfont(10, &NF20x24, x+80-2, y, 0xffff, bg); // period
-      itoap(measured_power_dbm >> 8, str, 4, ' ');
-      ili9341_drawfont_string(str, &NF20x24, x, y, 0xffff, bg);
-      itoap(((measured_power_dbm & 0xff) * 10) >> 8, str, 1, ' ');
-      ili9341_drawfont_string(str, &NF20x24, x+100-4, y, 0xffff, bg);
-      x += 120-4;
-      ili9341_drawfont(13, &NF20x24, x, y, 0xffff, bg); // dB
-    } else {
-      if (uistat.dgain == 0) {
-        ili9341_drawfont(15, &NF20x24, x, y, 0x07ff, bg); // ANT Mark
-        x += 20;
-        itoap(uistat.rfgain / 2, str, 3, ' ');
-        strcat(str, "   ");
-        ili9341_drawfont_string(str, &NF20x24, x, y, 0x07ff, bg);
-        x += 60;
-        ili9341_drawfont(13, &NF20x24, x, y, 0x07ff, bg); // dB
-        x += 20;
-      } else {
-        ili9341_drawfont(15, &NF20x24, x, y, 0x070f, bg);
-        x += 20;
-        itoap(uistat.dgain / 2, str, 3, ' ');
-        strcat(str, "   ");
-        ili9341_drawfont_string(str, &NF20x24, x, y, 0x070f, bg);
-        x += 60;
-        ili9341_drawfont(13, &NF20x24, x, y, 0x070f, bg);
-        x += 20;
-      }
+    if (!uistat.agcmode) {
+      uint16_t fg = 0x07ff;
+      if (uistat.rfgain < 0 || uistat.rfgain >= 96)
+        fg = 0x070f;
+      draw_db(uistat.rfgain << 7, x, y, fg, bg);
+      ili9341_drawfont(15, &NF20x24, x, y, fg, bg); // ANT Mark
     }
+}
+
+void
+draw_power(void)
+{
+  int x = 184;
+  int y = 48;
+  if (uistat.agcmode != 0) {
+    draw_db(measured_power_dbm, x, y, 0xffff, 0x0000);
+  }
 }
 
 void
@@ -1230,12 +1237,23 @@ disp_process(void)
     draw_info();
     spdispinfo.update_flag &= ~FLAG_UI;
   }
+
+  if (spdispinfo.update_flag & FLAG_POWER) {
+    draw_power();
+    spdispinfo.update_flag &= ~FLAG_POWER;
+  }
 }
 
 void
 disp_update(void)
 {
   spdispinfo.update_flag |= FLAG_UI;
+}
+   
+void
+disp_update_power(void)
+{
+  spdispinfo.update_flag |= FLAG_POWER;
 }
    
 void

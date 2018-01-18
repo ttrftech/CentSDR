@@ -162,6 +162,10 @@ void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf)
     ctrl = ((conf->decay & 0x1f) << 3) | (conf->decay_scale & 0x7);
     I2CWrite(AIC3204_ADDR, 0x5a, ctrl); /* Left AGC Decay Time */
     I2CWrite(AIC3204_ADDR, 0x62, ctrl); /* Right AGC Decay Time */
+
+    ctrl = conf->maximum_gain;
+    I2CWrite(AIC3204_ADDR, 0x58, ctrl); /* Left AGC Maximum Gain */
+    I2CWrite(AIC3204_ADDR, 0x60, ctrl); /* Right AGC Maximum Gain */
 }
 
 // implement HPF of first order IIR

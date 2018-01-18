@@ -47,7 +47,7 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
 
       calc_stat();      
       measure_power_dbm();
-      disp_update();
+      disp_update_power();
 
       if (++count == 10) {
         stat.fps = stat.fps_count;
@@ -132,7 +132,8 @@ int16_t mode_freq_offset = AM_FREQ_OFFSET;
 int32_t center_frequency;
 
 tlv320aic3204_agc_config_t agc_config = {
-  .target_level = 6
+  .target_level = 6,
+  .maximum_gain = 127
 };
 
 static signal_process_func_t demod_funcs[] = {
@@ -264,37 +265,23 @@ static void
 calc_stat(void)
 {
   int16_t *p = &rx_buffer[0];
-  int64_t acc0, acc1;
-  int32_t ave0, ave1;
   int16_t min0 = 0, min1 = 0;
   int16_t max0 = 0, max1 = 0;
   int32_t count = AUDIO_BUFFER_LEN;
   int i;
-  acc0 = acc1 = 0;
+  float accx0 = 0, accx1 = 0;
   for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
-    acc0 += p[i];
-    acc1 += p[i+1];
     if (min0 > p[i]) min0 = p[i];
     if (min1 > p[i+1]) min1 = p[i+1];
     if (max0 < p[i]) max0 = p[i];
     if (max1 < p[i+1]) max1 = p[i+1];
-  }
-  ave0 = acc0 / count;
-  ave1 = acc1 / count;
-  acc0 = acc1 = 0;
-  float accx0 = 0, accx1 = 0;
-  for (i = 0; i < AUDIO_BUFFER_LEN*2; i += 2) {
-    float x0 = p[i] - ave0;
-    float x1 = p[i+1] - ave1;
+    float x0 = p[i];
+    float x1 = p[i+1];
     accx0 += x0 * x0;
     accx1 += x1 * x1;
-    //acc0 += ((int32_t)p[i] - ave0)*((int32_t)p[i] - ave0);
-    //acc1 += ((int32_t)p[i+1] - ave1)*((int32_t)p[i+1] - ave1);
   }
   stat.rms[0] = sqrtf(accx0 / count);
   stat.rms[1] = sqrtf(accx1 / count);
-  stat.ave[0] = ave0;
-  stat.ave[1] = ave1;
   stat.min[0] = min0;
   stat.min[1] = min1;
   stat.max[0] = max0;
@@ -416,6 +403,7 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
       chprintf(chp, "\thysteresis {0-3}\r\n");
       chprintf(chp, "\tattack {0-31} [scale:0-7]\r\n");
       chprintf(chp, "\tdecay {0-31} [scale:0-7]\r\n");
+      chprintf(chp, "\tmaxgain {0-116}\r\n");
       return;
     }
 
@@ -439,6 +427,9 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
       agc_config.decay = atoi(argv[1]);
       if (argc >= 3)
         agc_config.decay_scale = atoi(argv[2]);
+      tlv320aic3204_agc_config(&agc_config);
+    } else if (strncmp(cmd, "ma", 2) == 0 && argc >= 2) {
+      agc_config.maximum_gain = atoi(argv[1]);
       tlv320aic3204_agc_config(&agc_config);
     }
 }
