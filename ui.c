@@ -29,28 +29,6 @@
 
 int fetch_encoder_tick(void);
 
-#define CHANNEL_MAX 18
-
-const setting_t channel_table[CHANNEL_MAX] = {
-  {   567000, MOD_AM,  20*2 },
-  {   747000, MOD_AM,  15*2 },
-  {  1287000, MOD_AM,  20*2 },
-  {  1440000, MOD_AM,  20*2 },
-  {  7100000, MOD_LSB, 20*2 },
-  { 14100000, MOD_USB, 20*2 },
-  { 21100000, MOD_USB, 25*2 },
-  { 28500000, MOD_USB, 25*2 },
-  { 34930000, MOD_FM,  20*2 },
-  {  2932000, MOD_USB, 20*2 },
-  {  5628000, MOD_USB, 20*2 },
-  {  6655000, MOD_USB, 20*2 },
-  {  8951000, MOD_USB, 20*2 },
-  { 10048000, MOD_USB, 20*2 },
-  { 11330000, MOD_USB, 20*2 },
-  { 13273000, MOD_USB, 20*2 },
-  { 17904000, MOD_USB, 20*2 }
-};
-
 #define NO_EVENT					0
 #define EVT_BUTTON_SINGLE_CLICK		0x01
 #define EVT_BUTTON_DOUBLE_CLICK		0x02
@@ -231,6 +209,19 @@ static const EXTConfig extconf = {
 };
 
 void
+recall_channel(unsigned int channel)
+{
+  // apply settings at channel
+  uistat.freq = config.channels[channel].freq;
+  //uistat.rfgain = config.channels[channel].rfgain;
+  uistat.modulation = config.channels[channel].modulation;
+
+  //set_gain(uistat.rfgain);
+  set_modulation(uistat.modulation);
+  update_frequency();
+}
+
+void
 ui_init(void)
 {
 #if 1
@@ -240,19 +231,19 @@ ui_init(void)
 
     uistat.mode = CHANNEL;
 	uistat.channel = 0;
-	uistat.freq = 747000;
+	uistat.freq = 567000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
 	uistat.volume = 10;
-	uistat.rfgain = 60; // 0 ~ 95
+	uistat.rfgain = 40; // 0 ~ 95
 	//uistat.agcmode = AGC_MANUAL;
     uistat.agcmode = AGC_MID;
-	//ui_update();
 
 	set_volume(uistat.volume);
 	set_gain(uistat.rfgain);
     set_agc_mode(uistat.agcmode);
-    update_frequency();
+    recall_channel(uistat.channel);
+    //update_frequency();
 }
 
 static int minmax(int x, int min, int max)
@@ -314,13 +305,7 @@ ui_process(void)
       } else {
         if (uistat.mode == CHANNEL) {
           uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
-          // apply settings at channel
-          uistat.freq = channel_table[uistat.channel].freq;
-          uistat.rfgain = channel_table[uistat.channel].rfgain;
-          uistat.modulation = channel_table[uistat.channel].modulation;
-          set_gain(uistat.rfgain);
-          set_modulation(uistat.modulation);
-          update_frequency();
+          recall_channel(uistat.channel);
         } else if (uistat.mode == VOLUME) {
           uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
           set_volume(uistat.volume);

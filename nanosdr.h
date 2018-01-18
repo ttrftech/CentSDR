@@ -171,18 +171,13 @@ typedef enum {
 
 extern void set_tune(int hz);
 extern void set_modulation(modulation_t mod);
+extern void recall_channel(unsigned int channel);
 
-
-typedef struct {
-    uint32_t freq;
-	modulation_t modulation;
-	int16_t rfgain;
-} setting_t;
 
 typedef struct {
     enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, SPDISP, WFDISP, MODE_MAX } mode;
 	int8_t volume;
-	int8_t channel;
+    uint8_t channel;
 
     uint32_t freq;
 	modulation_t modulation;
@@ -196,6 +191,33 @@ typedef struct {
 } uistat_t;
 
 extern uistat_t uistat;
+
+/*
+ * flash.c
+ */
+
+#define CHANNEL_MAX 100
+
+typedef struct {
+    uint32_t freq;
+	modulation_t modulation;
+} channel_t;
+
+typedef struct {
+  int32_t magic;
+  uint16_t dac_value;
+  channel_t channels[CHANNEL_MAX];
+  int32_t checksum;
+} config_t;
+
+extern config_t config;
+
+#define CONFIG_MAGIC 0x434f4e45 /* 'CONF' */
+
+int config_save(void);
+int config_recall(void);
+
+void clear_all_config_prop_data(void);
 
 
 /*EOF*/

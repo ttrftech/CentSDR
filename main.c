@@ -119,6 +119,10 @@ static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
     }
     freq = atoi(argv[0]);
     set_tune(freq);
+
+    uistat.freq = freq;
+    uistat.mode = FREQ;
+    disp_update();
 }
 
 
@@ -134,6 +138,33 @@ int32_t center_frequency;
 tlv320aic3204_agc_config_t agc_config = {
   .target_level = 6,
   .maximum_gain = 127
+};
+
+// restored from/into flash memory
+config_t config = {
+  .magic = CONFIG_MAGIC,
+  .dac_value = 1080,
+  .channels = {
+    /*    freq, modulation */
+    {   567000, MOD_AM },
+    {   747000, MOD_AM },
+    {  1287000, MOD_AM },
+    {  1440000, MOD_AM },
+    {  7100000, MOD_LSB },
+    { 14100000, MOD_USB },
+    { 21100000, MOD_USB },
+    { 26800000, MOD_FM },
+    { 27500000, MOD_FM },
+    { 28400000, MOD_FM },
+    {  2932000, MOD_USB },
+    {  5628000, MOD_USB },
+    {  6655000, MOD_USB },
+    {  8951000, MOD_USB },
+    { 10048000, MOD_USB },
+    { 11330000, MOD_USB },
+    { 13273000, MOD_USB },
+    { 17904000, MOD_USB }
+  }
 };
 
 static signal_process_func_t demod_funcs[] = {
@@ -385,11 +416,11 @@ static void cmd_dac(BaseSequentialStream *chp, int argc, char *argv[])
     int value;
     if (argc != 1) {
         chprintf(chp, "usage: dac {value(0-4095)}\r\n");
-        //chprintf(chp, "current value: %d\r\n", config.dac_value);
+        chprintf(chp, "current value: %d\r\n", config.dac_value);
         return;
     }
     value = atoi(argv[0]);
-    //config.dac_value = value;
+    config.dac_value = value;
     dacPutChannelX(&DACD1, 0, value);
 }
 
@@ -471,6 +502,8 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
       set_modulation(MOD_LSB);
     } else if (strncmp(cmd, "usb", 1) == 0) {
       set_modulation(MOD_USB);
+    } else if (strncmp(cmd, "fm", 1) == 0) {
+      set_modulation(MOD_FM);
     }
 }
 
@@ -501,6 +534,65 @@ static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
       chprintf(chp, "usage: show {wf|wave}\r\n");
       return;
     }
+}
+
+static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    if (argc == 0) {
+      chprintf(chp, "usage: channel [n(0-99)]\r\n");
+      return;
+    }
+
+    int channel;
+    if (strncmp(argv[0], "save", 1) == 0) {
+      channel = uistat.channel;
+      if (argc >= 2) {
+        channel = atoi(argv[1]);
+        if (channel < 0 || channel >= CHANNEL_MAX) {
+          chprintf(chp, "specified channel is out of range\r\n");
+          return;
+        }
+      } else {
+        chprintf(chp, "channel saved on %d\r\n", channel);
+      }
+      config.channels[channel].freq = uistat.freq;
+      config.channels[channel].modulation = uistat.modulation;
+    } else {
+      channel = atoi(argv[0]);
+      if (channel < 0 || channel >= CHANNEL_MAX) {
+        chprintf(chp, "specified channel is out of range\r\n");
+        return;
+      }
+      recall_channel(channel);
+      uistat.mode = CHANNEL;
+      uistat.channel = channel;
+      disp_update();
+    }
+}
+
+static void cmd_save(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+
+  config_save();
+  chprintf(chp, "Config saved.\r\n");
+}
+
+static void cmd_clearconfig(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  if (argc != 1) {
+    chprintf(chp, "usage: clearconfig {protection key}\r\n");
+    return;
+  }
+
+  if (strcmp(argv[0], "1234") != 0) {
+    chprintf(chp, "Key unmatched.\r\n");
+    return;
+  }
+
+  clear_all_config_prop_data();
+  chprintf(chp, "Config and all cal data cleared.\r\n");
 }
 
 static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
@@ -537,6 +629,9 @@ static const ShellCommand commands[] =
     { "mode", cmd_mode },
     { "winfunc", cmd_winfunc },
     { "show", cmd_show },
+    { "channel", cmd_channel },
+    { "save", cmd_save },
+    { "clearconfig", cmd_clearconfig },
     { NULL, NULL }
 };
 
@@ -592,11 +687,14 @@ int __attribute__((noreturn)) main(void)
   halInit();
   chSysInit();
 
+  /* restore config */
+  config_recall();
+
   /*
    * Starting DAC1 driver, setting up the output pin as analog as suggested
    * by the Reference Manual.
    */
-  //dac1cfg1.init = config.dac_value;
+  dac1cfg1.init = config.dac_value;
   dacStart(&DACD1, &dac1cfg1);
 
   i2cStart(&I2CD1, &i2ccfg);
@@ -631,7 +729,7 @@ int __attribute__((noreturn)) main(void)
 
   //si5351_set_frequency(48001);
   //si5351_set_frequency(567*4); // NHK1
-  set_tune(567000); // NHK1
+  //set_tune(567000); // NHK1
   //set_tune(35000000);
 
   /*
