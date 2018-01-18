@@ -105,7 +105,8 @@ include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 include $(CHIBIOS)/os/various/shell/shell.mk
 
 # Define linker script file here
-LDSCRIPT= $(STARTUPLD)/STM32F303xC.ld
+#LDSCRIPT= $(STARTUPLD)/STM32F303xC.ld
+LDSCRIPT= $(STARTUPLD)/STM32F303xB.ld
 
 CMSIS = CMSIS
 DSPLIBINC = ${CMSIS}/Include
