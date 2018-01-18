@@ -86,7 +86,7 @@ endif
 PROJECT = ch
 
 # Imported source files and paths
-CHIBIOS = ../ChibiOS-RT
+CHIBIOS = ChibiOS
 PROJ = .
 # Startup files.
 include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_stm32f3xx.mk
@@ -106,7 +106,7 @@ include $(CHIBIOS)/os/various/shell/shell.mk
 
 # Define linker script file here
 #LDSCRIPT= $(STARTUPLD)/STM32F303xC.ld
-LDSCRIPT= $(STARTUPLD)/STM32F303xB.ld
+LDSCRIPT= STM32F303xB.ld
 
 CMSIS = CMSIS
 DSPLIBINC = ${CMSIS}/Include
