@@ -239,7 +239,6 @@ include $(RULESPATH)/rules.mk
 flash: all
 	arm-none-eabi-gdb -x flash.gdb --silent
 
-
 RELEASE=$(shell date +%Y%m%d)
 DIST_FILES= build/ch.bin build/ch.hex build/ch.elf
 
