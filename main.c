@@ -359,7 +359,13 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   ave1 = acc1 / count;
   chprintf(chp, "audio average: %d %d\r\n", ave0, ave1);
 #endif
-  
+}
+
+
+static void cmd_power(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
   chprintf(chp, "power: %d.%01ddBm\r\n", measured_power_dbm >> 8,
            ((measured_power_dbm&0xff) * 10) >> 8);
 }
@@ -629,6 +635,7 @@ static const ShellCommand commands[] =
     { "mode", cmd_mode },
     { "winfunc", cmd_winfunc },
     { "show", cmd_show },
+    { "power", cmd_power },
     { "channel", cmd_channel },
     { "save", cmd_save },
     { "clearconfig", cmd_clearconfig },
