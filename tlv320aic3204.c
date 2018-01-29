@@ -48,7 +48,7 @@ tlv320aic3204_config(const uint8_t *data)
   }
 }
 
-static const uint8_t conf_data1[] = {
+static const uint8_t conf_data_pll[] = {
   // len, ( reg, data ), 
   2, 0x00, 0x00, /* Initialize to Page 0 */
   2, 0x01, 0x01, /* Initialize the device through software reset */
@@ -74,6 +74,11 @@ static const uint8_t conf_data1[] = {
   2, 0x07, 18,    /* D=4800 = (18<<8) + 192 */
   2, 0x08, 192,
 #endif
+  0 // sentinel
+};
+
+// default fs=48kHz
+static const uint8_t conf_data_clk[] = {
   2, 0x0b, 0x82, /* Power up the NDAC divider with value 2 */
   2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
   2, 0x0d, 0x00, /* Program the OSR of DAC to 128 */
@@ -82,6 +87,49 @@ static const uint8_t conf_data1[] = {
   2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
   2, 0x1e, 0x80 + 28, /* Enable the BCLKN divider with value 28 */
   2, 0x25, 0xee, /* DAC power up */
+
+  2, 0x12, 0x82, /* Power up the NADC divider with value 2 */
+  2, 0x13, 0x87, /* Power up the MADC divider with value 7 */
+  2, 0x14, 0x80, /* Program the OSR of ADC to 128 */
+  2, 0x3d, 0x01, /* Select ADC PRB_R1 */
+  0 // sentinel
+};
+
+static const uint8_t conf_data_clk_96kHz[] = {
+  2, 0x0b, 0x82, /* Power up the NDAC divider with value 2 */
+  2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
+  2, 0x0d, 0x00, /* Program the OSR of DAC to 64 */
+  2, 0x0e, 0x40,
+  2, 0x3c, 0x08, /* Set the DAC Mode to PRB_P8 */
+  2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
+  2, 0x1e, 0x80 + 14, /* Enable the BCLKN divider with value 14 */
+  2, 0x25, 0xee, /* DAC power up */
+
+  2, 0x12, 0x82, /* Power up the NADC divider with value 7 */
+  2, 0x13, 0x87, /* Power up the MADC divider with value 2 */
+  2, 0x14, 0x40, /* Program the OSR of ADC to 64 */
+  2, 0x3d, 0x01, /* Select ADC PRB_R1 */
+  0 // sentinel
+};
+
+static const uint8_t conf_data_clk_192kHz[] = {
+  2, 0x0b, 0x82, /* Power up the NDAC divider with value 2 */
+  2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
+  2, 0x0d, 0x00, /* Program the OSR of DAC to 32 */
+  2, 0x0e, 0x20,
+  2, 0x3c, 20, //0x08, /* Set the DAC Mode to PRB_P20 (reduce resource) */
+  2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
+  2, 0x1e, 0x80 + 7, /* Enable the BCLKN divider with value 7 */
+  2, 0x25, 0xee, /* DAC power up */
+
+  2, 0x12, 0x81, /* Power up the NADC divider with value 1 */
+  2, 0x13, 0x87, /* Power up the MADC divider with value 7 */
+  2, 0x14, 0x40, /* Program the OSR of ADC to 64 */
+  2, 0x3d, 0x01, /* Select ADC PRB_R1 */
+  0 // sentinel
+};
+
+static const uint8_t conf_data_routing[] = {
   2, 0x00, 0x01, /* Select Page 1 */
   2, 0x01, 0x08, /* Disable Internal Crude AVdd in presence of external AVdd supply or before powering up internal AVdd LDO*/
   2, 0x02, 0x01, /* Enable Master Analog Power Control */
@@ -97,12 +145,6 @@ static const uint8_t conf_data1[] = {
   2, 0x11, 0x0a, /* Set the HPR gain to 0dB */
   2, 0x09, 0x30, /* Power up HPL and HPR drivers */
 
-  2, 0x00, 0x00, /* Select Page 0 */
-  2, 0x12, 0x82, /* Power up the NADC divider with value 7 */
-  2, 0x13, 0x87, /* Power up the MADC divider with value 2 */
-  2, 0x14, 0x80, /* Program the OSR of ADC to 128 */
-  2, 0x3d, 0x01, /* Select ADC PRB_R1 */
-  2, 0x00, 0x01, /* Select Page 1 */
   2, 0x3d, 0x00, /* Select ADC PTM_R4 */
   2, 0x47, 0x32, /* Set MicPGA startup delay to 3.1ms */
   2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
@@ -118,7 +160,7 @@ static const uint8_t conf_data1[] = {
   0 // sentinel
 };
 
-const uint8_t conf_data2[] = {
+const uint8_t conf_data_unmute[] = {
   2, 0x00, 0x00, /* Select Page 0 */
   2, 0x3f, 0xd6, /* Power up the Left and Right DAC Channels with route the Left Audio digital data to Left Channel DAC and Right Audio digital data to Right Channel DAC */
   2, 0x40, 0x00, /* Unmute the DAC digital volume control */
@@ -128,178 +170,34 @@ const uint8_t conf_data2[] = {
   0 // sentinel
 };
 
-static const uint8_t conf_data1_96kHz[] = {
-  // len, ( reg, data ), 
-  2, 0x00, 0x00, /* Initialize to Page 0 */
-  2, 0x01, 0x01, /* Initialize the device through software reset */
-  2, 0x04, 0x43, /* PLL Clock High, MCLK, PLL */
-#ifdef REFCLK_8000KHZ
-  /* 8.000MHz*10.7520 = 86.016MHz, 86.016MHz/(2*7*128) = 48kHz */
-  2, 0x05, 0x91, /* Power up PLL, P=1,R=1 */
-  2, 0x06, 0x0a, /* J=10 */
-  2, 0x07, 29,    /* D=7520 = (29<<8) + 96 */
-  2, 0x08, 96,
-#endif
-#ifdef REFCLK_12000KHZ
-  /* 12.000MHz*7.1680 = 86.016MHz, 86.016MHz/(2*7*128) = 48kHz */
-  2, 0x05, 0x91, /* Power up PLL, P=1,R=1 */
-  2, 0x06, 0x07, /* J=7 */
-  2, 0x07, 6,    /* D=1680 = (6<<8) + 144 */
-  2, 0x08, 144,
-#endif
-#ifdef REFCLK_19200KHZ
-  /* 19.200MHz*4.48 = 86.016MHz, 86.016MHz/(2*7*128) = 48kHz */
-  2, 0x05, 0x91, /* Power up PLL, P=1,R=1 */
-  2, 0x06, 0x04, /* J=4 */
-  2, 0x07, 18,    /* D=4800 = (18<<8) + 192 */
-  2, 0x08, 192,
-#endif
-  2, 0x0b, 0x82, /* Power up the NDAC divider with value 2 */
-  2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
-  2, 0x0d, 0x00, /* Program the OSR of DAC to 128 */
-  2, 0x0e, 0x40,
-  2, 0x3c, 0x08, /* Set the DAC Mode to PRB_P8 */
-  2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
-  2, 0x1e, 0x80 + 14, /* Enable the BCLKN divider with value 28 */
-  2, 0x25, 0xee, /* DAC power up */
-  2, 0x00, 0x01, /* Select Page 1 */
-  2, 0x01, 0x08, /* Disable Internal Crude AVdd in presence of external AVdd supply or before powering up internal AVdd LDO*/
-  2, 0x02, 0x01, /* Enable Master Analog Power Control */
-  2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
-  2, 0x14, 0x25, /* HP soft stepping settings for optimal pop performance at power up Rpop used is 6k with N = 6 and soft step = 20usec. This should work with 47uF coupling capacitor. Can try N=5,6 or 7 time constants as well. Trade-off delay vs “pop” sound. */
-  2, 0x0a, 0x00, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to Input Common Mode */
-  2, 0x0a, 0x33, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to 1.65V */
-  2, 0x0c, 0x08, /* Route Left DAC to HPL */
-  2, 0x0d, 0x08, /* Route Right DAC to HPR */
-  2, 0x03, 0x00, /* Set the DAC PTM mode to PTM_P3/4 */
-  2, 0x04, 0x00,
-  2, 0x10, 0x0a, /* Set the HPL gain to 0dB */
-  2, 0x11, 0x0a, /* Set the HPR gain to 0dB */
-  2, 0x09, 0x30, /* Power up HPL and HPR drivers */
-
-  2, 0x00, 0x00, /* Select Page 0 */
-  2, 0x12, 0x82, /* Power up the NADC divider with value 7 */
-  2, 0x13, 0x87, /* Power up the MADC divider with value 2 */
-  2, 0x14, 0x40, /* Program the OSR of ADC to 128 */
-  2, 0x3d, 0x01, /* Select ADC PRB_R1 */
-  2, 0x00, 0x01, /* Select Page 1 */
-  2, 0x3d, 0x00, /* Select ADC PTM_R4 */
-  2, 0x47, 0x32, /* Set MicPGA startup delay to 3.1ms */
-  2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
-  2, 0x34, 0x10, /* Route IN2L to LEFT_P with 10K */
-  2, 0x36, 0x10, /* Route IN2R to LEFT_N with 10K */
-  2, 0x37, 0x04, /* Route IN3R to RIGHT_P with 10K */
-  2, 0x39, 0x04, /* Route IN3L to RIGHT_N with 10K */
-  2, 0x3b, 72, /* Unmute Left MICPGA, Gain selection of 32dB to make channel gain 0dB */
-  2, 0x3c, 72, /* Unmute Right MICPGA, Gain selection of 32dB to make channel gain 0dB */
-  2, 0x33, 0x60, /* Enable MIC bias, 2.5V */
-  2, 0x00, 0x08, /* Select Page 8 */
-  2, 0x01, 0x04, /* Enable Adaptive Filter mode */
+static const uint8_t conf_data_divoff[] = {
+  2, 0x0b, 0x00, /* Power down NDAC divider */
+  2, 0x0c, 0x00, /* Power down MDAC divider */
+  2, 0x12, 0x00, /* Power down NADC divider */
+  2, 0x13, 0x00, /* Power down MADC divider */
   0 // sentinel
 };
-
-static const uint8_t conf_data1_192kHz[] = {
-  // len, ( reg, data ), 
-  2, 0x00, 0x00, /* Initialize to Page 0 */
-  2, 0x01, 0x01, /* Initialize the device through software reset */
-  2, 0x04, 0x43, /* PLL Clock High, MCLK, PLL */
-#ifdef REFCLK_8000KHZ
-  /* 8.000MHz*10.7520 = 86.016MHz, 86.016MHz/(2*7*128) = 48kHz */
-  2, 0x05, 0x91, /* Power up PLL, P=1,R=1 */
-  2, 0x06, 0x0a, /* J=10 */
-  2, 0x07, 29,    /* D=7520 = (29<<8) + 96 */
-  2, 0x08, 96,
-#endif
-#ifdef REFCLK_12000KHZ
-  /* 12.000MHz*7.1680 = 86.016MHz, 86.016MHz/(2*7*128) = 48kHz */
-  2, 0x05, 0x91, /* Power up PLL, P=1,R=1 */
-  2, 0x06, 0x07, /* J=7 */
-  2, 0x07, 6,    /* D=1680 = (6<<8) + 144 */
-  2, 0x08, 144,
-#endif
-#ifdef REFCLK_19200KHZ
-  /* 19.200MHz*4.48 = 86.016MHz, 86.016MHz/(2*7*128) = 48kHz */
-  2, 0x05, 0x91, /* Power up PLL, P=1,R=1 */
-  2, 0x06, 0x04, /* J=4 */
-  2, 0x07, 18,    /* D=4800 = (18<<8) + 192 */
-  2, 0x08, 192,
-#endif
-  2, 0x0b, 0x82, /* Power up the NDAC divider with value 2 */
-  2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
-  2, 0x0d, 0x00, /* Program the OSR of DAC to 128 */
-  2, 0x0e, 0x20,
-  2, 0x3c, 20, /* Set the DAC Mode to PRB_P8 */
-  2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
-  2, 0x1e, 0x80 + 7, /* Enable the BCLKN divider with value 28 */
-  2, 0x25, 0xee, /* DAC power up */
-  2, 0x00, 0x01, /* Select Page 1 */
-  2, 0x01, 0x08, /* Disable Internal Crude AVdd in presence of external AVdd supply or before powering up internal AVdd LDO*/
-  2, 0x02, 0x01, /* Enable Master Analog Power Control */
-  2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
-  2, 0x14, 0x25, /* HP soft stepping settings for optimal pop performance at power up Rpop used is 6k with N = 6 and soft step = 20usec. This should work with 47uF coupling capacitor. Can try N=5,6 or 7 time constants as well. Trade-off delay vs “pop” sound. */
-  2, 0x0a, 0x00, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to Input Common Mode */
-  2, 0x0a, 0x33, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to 1.65V */
-  2, 0x0c, 0x08, /* Route Left DAC to HPL */
-  2, 0x0d, 0x08, /* Route Right DAC to HPR */
-  2, 0x03, 0x00, /* Set the DAC PTM mode to PTM_P3/4 */
-  2, 0x04, 0x00,
-  2, 0x10, 0x0a, /* Set the HPL gain to 0dB */
-  2, 0x11, 0x0a, /* Set the HPR gain to 0dB */
-  2, 0x09, 0x30, /* Power up HPL and HPR drivers */
-
-  2, 0x00, 0x00, /* Select Page 0 */
-  2, 0x12, 0x81, /* Power up the NADC divider with value 7 */
-  2, 0x13, 0x87, /* Power up the MADC divider with value 2 */
-  2, 0x14, 0x40, /* Program the OSR of ADC to 128 */
-  2, 0x3d, 0x01, /* Select ADC PRB_R1 */
-  2, 0x00, 0x01, /* Select Page 1 */
-  2, 0x3d, 0x00, /* Select ADC PTM_R4 */
-  2, 0x47, 0x32, /* Set MicPGA startup delay to 3.1ms */
-  2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
-  2, 0x34, 0x10, /* Route IN2L to LEFT_P with 10K */
-  2, 0x36, 0x10, /* Route IN2R to LEFT_N with 10K */
-  2, 0x37, 0x04, /* Route IN3R to RIGHT_P with 10K */
-  2, 0x39, 0x04, /* Route IN3L to RIGHT_N with 10K */
-  2, 0x3b, 72, /* Unmute Left MICPGA, Gain selection of 32dB to make channel gain 0dB */
-  2, 0x3c, 72, /* Unmute Right MICPGA, Gain selection of 32dB to make channel gain 0dB */
-  2, 0x33, 0x60, /* Enable MIC bias, 2.5V */
-  2, 0x00, 0x08, /* Select Page 8 */
-  2, 0x01, 0x04, /* Enable Adaptive Filter mode */
-  0 // sentinel
-};
-
 
 void tlv320aic3204_init(void)
 {
-  tlv320aic3204_config(conf_data1);
+  tlv320aic3204_config(conf_data_pll);
+  tlv320aic3204_config(conf_data_clk);
+  //tlv320aic3204_config(conf_data_clk_192kHz);
+  tlv320aic3204_config(conf_data_routing);
   wait_ms(40);
-  tlv320aic3204_config(conf_data2);
+  tlv320aic3204_config(conf_data_unmute);
 }
 
-void tlv320aic3204_set_fs_96khz(void)
+void tlv320aic3204_set_fs(int fs)
 {
-  tlv320aic3204_config(conf_data1_96kHz);
-  wait_ms(40);
-  tlv320aic3204_config(conf_data2);
+  tlv320aic3204_config(conf_data_divoff);
 
-  //tlv320aic3204_write(0x51, 0x00); /* Power down Left and Right ADC Channels */
-  //tlv320aic3204_write(0x25, 0x00); /* DAC power up */
-
-  //tlv320aic3204_write(0x14, 0x40); /* Program the OSR of ADC to 64 */
-  //tlv320aic3204_write(0x0d, 0x00); /* Program the OSR of DAC to 128 */
-  //tlv320aic3204_write(0x0e, 0x40); /* Program the OSR of DAC to 64 */
-
-  //tlv320aic3204_write(0x1e, 0x80 + 14); /* Enable the BCLKN divider with value 14 */
-  //tlv320aic3204_write(0x25, 0xee); /* DAC power up */
-  //tlv320aic3204_write(0x51, 0xc0); /* Power up Left and Right ADC Channels */
-}
-
-void tlv320aic3204_set_fs_48khz(void)
-{
-    tlv320aic3204_write(0x1e, 0x80 + 28); /* Enable the BCLKN divider with value 28 */
-    tlv320aic3204_write(0x14, 0x80); /* Program the OSR of ADC to 128 */
-    tlv320aic3204_write(0x0d, 0x00); /* Program the OSR of DAC to 128 */
-    tlv320aic3204_write(0x0e, 0x80); /* Program the OSR of DAC to 128 */
+  if (fs == 48)
+    tlv320aic3204_config(conf_data_clk);
+  else if (fs == 96)
+    tlv320aic3204_config(conf_data_clk_96kHz);
+  else if (fs == 192)
+    tlv320aic3204_config(conf_data_clk_192kHz);
 }
 
 void tlv320aic3204_set_impedance(int imp)

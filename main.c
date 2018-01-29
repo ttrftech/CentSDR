@@ -509,12 +509,12 @@ static void cmd_fs(BaseSequentialStream *chp, int argc, char *argv[])
     fs = atoi(argv[0]);
   }
 
-  if (fs == 48) {
-    tlv320aic3204_set_fs_48khz();
-  } else if (fs == 96) {
-    tlv320aic3204_set_fs_96khz();
+  if (fs == 48 || fs == 96 || fs == 192) {
+    i2sStopExchange(&I2SD2);
+    tlv320aic3204_set_fs(fs);
+    i2sStartExchange(&I2SD2);
   } else {
-    chprintf(chp, "usage: fs {48|96}\r\n");
+    chprintf(chp, "usage: fs {48|96|192}\r\n");
   }
 }
 
