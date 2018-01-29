@@ -18,8 +18,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-extern void I2CWrite(int addr, uint8_t d0, uint8_t d1);
-extern int I2CRead(int addr, uint8_t d0);
+/*
+ * main.c
+ */
 
 extern int16_t measured_power_dbm;
 
@@ -42,6 +43,9 @@ extern void tlv320aic3204_set_gain(int gain);
 extern void tlv320aic3204_set_digital_gain(int gain);
 extern void tlv320aic3204_set_volume(int gain);
 extern void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf);
+
+extern void tlv320aic3204_set_fs_96khz(void);
+extern void tlv320aic3204_set_fs_48khz(void);
 
 extern void tlv320aic3204_config_adc_filter(int enable);
 extern void tlv320aic3204_set_impedance(int imp);
@@ -206,6 +210,7 @@ typedef struct {
 typedef struct {
   int32_t magic;
   uint16_t dac_value;
+  tlv320aic3204_agc_config_t agc;
   channel_t channels[CHANNEL_MAX];
   int32_t checksum;
 } config_t;

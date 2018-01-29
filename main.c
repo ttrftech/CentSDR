@@ -82,23 +82,6 @@ static const I2CConfig i2ccfg = {
   0
 };
 
-void I2CWrite(int addr, uint8_t d0, uint8_t d1)
-{
-    uint8_t buf[] = { d0, d1 };
-    i2cAcquireBus(&I2CD1);
-    (void)i2cMasterTransmitTimeout(&I2CD1, addr, buf, 2, NULL, 0, 1000);
-    i2cReleaseBus(&I2CD1);
-}
-
-int I2CRead(int addr, uint8_t d0)
-{
-    uint8_t buf[] = { d0 };
-    i2cAcquireBus(&I2CD1);
-    i2cMasterTransmitTimeout(&I2CD1, addr, buf, 1, buf, 1, 1000);
-    i2cReleaseBus(&I2CD1);
-    return buf[0];
-}
-
 static void cmd_freq(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int freq;
@@ -135,15 +118,14 @@ signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;
 int32_t center_frequency;
 
-tlv320aic3204_agc_config_t agc_config = {
-  .target_level = 6,
-  .maximum_gain = 127
-};
-
 // restored from/into flash memory
 config_t config = {
   .magic = CONFIG_MAGIC,
   .dac_value = 1080,
+  .agc = {
+    .target_level = 6,
+    .maximum_gain = 127
+  },
   .channels = {
     /*    freq, modulation */
     {   567000, MOD_AM },
@@ -326,7 +308,9 @@ measure_power_dbm(void)
 {
   extern int log2_q31(int32_t x);
   int agcgain = tlv320aic3204_get_left_agc_gain();  
-  int dbm = 6 * log2_q31(stat.rms[0]) - (agcgain << 7); // 8.8 fmt
+  int dbm =                    // fixed point 8.8 format
+    6 * log2_q31(stat.rms[0])  // 6dB/bit
+    - (agcgain << 7);          // 0.5dB/agcgain
   dbm -= 116 << 8;
   measured_power_dbm = dbm;
 }
@@ -448,26 +432,26 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
     if (strncmp(cmd, "di", 2) == 0) {
       tlv320aic3204_agc_config(NULL);
     } else if (strncmp(cmd, "en", 2) == 0) {
-      tlv320aic3204_agc_config(&agc_config);
+      tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "le", 2) == 0 && argc == 2) {
-      agc_config.target_level = atoi(argv[1]);
-      tlv320aic3204_agc_config(&agc_config);
+      config.agc.target_level = atoi(argv[1]);
+      tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "hy", 2) == 0 && argc == 2) {
-      agc_config.gain_hysteresis = atoi(argv[1]);
-      tlv320aic3204_agc_config(&agc_config);
+      config.agc.gain_hysteresis = atoi(argv[1]);
+      tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "at", 2) == 0 && argc >= 2) {
-      agc_config.attack = atoi(argv[1]);
+      config.agc.attack = atoi(argv[1]);
       if (argc >= 3)
-        agc_config.attack_scale = atoi(argv[2]);
-      tlv320aic3204_agc_config(&agc_config);
+        config.agc.attack_scale = atoi(argv[2]);
+      tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "de", 2) == 0 && argc >= 2) {
-      agc_config.decay = atoi(argv[1]);
+      config.agc.decay = atoi(argv[1]);
       if (argc >= 3)
-        agc_config.decay_scale = atoi(argv[2]);
-      tlv320aic3204_agc_config(&agc_config);
+        config.agc.decay_scale = atoi(argv[2]);
+      tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "ma", 2) == 0 && argc >= 2) {
-      agc_config.maximum_gain = atoi(argv[1]);
-      tlv320aic3204_agc_config(&agc_config);
+      config.agc.maximum_gain = atoi(argv[1]);
+      tlv320aic3204_agc_config(&config.agc);
     }
 }
 
@@ -478,19 +462,19 @@ void set_agc_mode(int mode)
     tlv320aic3204_agc_config(NULL);
     return;
   case AGC_FAST:
-    agc_config.decay = 0;
-    agc_config.decay_scale = 0;
+    config.agc.decay = 0;
+    config.agc.decay_scale = 0;
     break;
   case AGC_MID:
-    agc_config.decay = 7;
-    agc_config.decay_scale = 0;
+    config.agc.decay = 7;
+    config.agc.decay_scale = 0;
     break;
   case AGC_SLOW:
-    agc_config.decay = 31;
-    agc_config.decay_scale = 4;
+    config.agc.decay = 31;
+    config.agc.decay_scale = 4;
     break;
   }
-  tlv320aic3204_agc_config(&agc_config);
+  tlv320aic3204_agc_config(&config.agc);
 }
 
 static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
@@ -504,13 +488,34 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
     cmd = argv[0];
     if (strncmp(cmd, "am", 1) == 0) {
       set_modulation(MOD_AM);
+      disp_update();
     } else if (strncmp(cmd, "lsb", 1) == 0) {
       set_modulation(MOD_LSB);
+      disp_update();
     } else if (strncmp(cmd, "usb", 1) == 0) {
       set_modulation(MOD_USB);
+      disp_update();
     } else if (strncmp(cmd, "fm", 1) == 0) {
       set_modulation(MOD_FM);
+      disp_update();
     }
+}
+
+static void cmd_fs(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  int fs = 0;
+  
+  if (argc == 1) {
+    fs = atoi(argv[0]);
+  }
+
+  if (fs == 48) {
+    tlv320aic3204_set_fs_48khz();
+  } else if (fs == 96) {
+    tlv320aic3204_set_fs_96khz();
+  } else {
+    chprintf(chp, "usage: fs {48|96}\r\n");
+  }
 }
 
 static void cmd_winfunc(BaseSequentialStream *chp, int argc, char *argv[])
@@ -633,6 +638,7 @@ static const ShellCommand commands[] =
     { "dcreject", cmd_dcreject },
     { "imp", cmd_impedance },
     { "mode", cmd_mode },
+    { "fs", cmd_fs },
     { "winfunc", cmd_winfunc },
     { "show", cmd_show },
     { "power", cmd_power },

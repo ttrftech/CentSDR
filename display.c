@@ -537,14 +537,6 @@ arm_cfft_radix4_instance_q31 cfft_inst;
 uistat_t uistat;
 
 
-// DMA double buffer
-extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
-extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
-
-// buffers for DSP
-extern int16_t buffer[2][AUDIO_BUFFER_LEN];
-extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
-
 typedef struct {
 	uint32_t sample_freq;
 	int16_t offset;
@@ -557,7 +549,6 @@ typedef struct {
 	int16_t tickunit;
 	const char *unitname;
 } spectrumdisplay_param_t;
-
 
 // 320pixel = 1024pt = 48kHz
 // 35.55 pixel = 5kHz
