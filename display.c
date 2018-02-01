@@ -1125,8 +1125,7 @@ draw_channel_freq(void)
 		}
 	}
 	// draw kHz symbol
-	ili9341_drawfont(17, &NF20x24, x, 24, 0xffff, bg);
-    ili9341_fill(x, 0, 20, 24, bg);
+	ili9341_drawfont(11, &NF32x48, x, 0, 0xffff, bg);
     x += 20;
 	ili9341_drawfont(10, &NF32x48, x, 0, 0xffff, bg);
 }
