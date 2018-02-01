@@ -234,6 +234,12 @@ ULIBS = -lm
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
 
+OS_SRCS=$(shell find ChibiOS/os/hal/ports/STM32/STM32F3xx ChibiOS/os -name \*.\[ch\] -print) 
+
+TAGS: Makefile
+	@etags *.[ch] NANOSDR_STM32_F303/*.[ch] $(OS_SRCS)
+	@ls -l TAGS
+
 .PHONY: flash
 
 flash: all
