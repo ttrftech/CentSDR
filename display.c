@@ -1149,6 +1149,25 @@ draw_db(int db, int x, int y, int16_t fg, int16_t bg)
   ili9341_drawfont_string(str, &NF20x24, x+100-10, y, fg, bg);
   x += 120-10;
   ili9341_drawfont(13, &NF20x24, x, y, fg, bg); // dB
+  x += 20;
+  ili9341_fill(x, y, 6, 32, bg);
+}
+
+void
+draw_dbm(int db, int x, int y, int16_t fg, int16_t bg)
+{
+  char str[10];
+  ili9341_drawfont(10, &NF20x24, x+80-6, y, fg, bg); // period
+  ili9341_drawfont(22, &NF20x24, x+96, y, fg, bg); // d
+  ili9341_drawfont(23, &NF20x24, x+116, y, fg, bg); // Bm
+  int d = db >> 8;
+  if (d < 0 && (db & 0xff))
+    d++;
+  itoap(d, str, 4, ' ');
+  ili9341_drawfont_string(str, &NF20x24, x, y, fg, bg);
+  if (db < 0) db = 0x100 - (db & 0xff);
+  itoap(((db & 0xff) * 10) >> 8, str, 1, ' ');
+  ili9341_drawfont_string(str, &NF20x24, x+100-14, y, fg, bg);
 }
 
 void
@@ -1194,7 +1213,7 @@ draw_power(void)
   int x = 184;
   int y = 48;
   if (uistat.agcmode != 0) {
-    draw_db(measured_power_dbm, x, y, 0xffff, 0x0000);
+    draw_dbm(measured_power_dbm, x, y, 0xffff, 0x0000);
   }
 }
 
