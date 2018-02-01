@@ -215,8 +215,10 @@ recall_channel(unsigned int channel)
   uistat.freq = config.channels[channel].freq;
   //uistat.rfgain = config.channels[channel].rfgain;
   uistat.modulation = config.channels[channel].modulation;
-
+  uistat.fs = config.channels[channel].fs;
+  
   //set_gain(uistat.rfgain);
+  set_fs(uistat.fs);
   set_modulation(uistat.modulation);
   update_frequency();
 }

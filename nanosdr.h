@@ -174,6 +174,7 @@ typedef enum {
 extern void set_tune(int hz);
 extern void set_modulation(modulation_t mod);
 extern void recall_channel(unsigned int channel);
+extern void set_fs(int fs);
 
 
 typedef struct {
@@ -184,6 +185,7 @@ typedef struct {
     uint32_t freq;
 	modulation_t modulation;
 	int8_t rfgain;
+    uint8_t fs; /* 48, 96, 192 */
 
 	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
 	int8_t digit; /* 0~5 */
@@ -201,8 +203,9 @@ extern uistat_t uistat;
 #define CHANNEL_MAX 100
 
 typedef struct {
-    uint32_t freq;
-	modulation_t modulation;
+  uint32_t freq;
+  modulation_t modulation;
+  uint8_t fs;
 } channel_t;
 
 typedef struct {

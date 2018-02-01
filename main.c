@@ -128,24 +128,24 @@ config_t config = {
   },
   .channels = {
     /*    freq, modulation */
-    {   567000, MOD_AM },
-    {   747000, MOD_AM },
-    {  1287000, MOD_AM },
-    {  1440000, MOD_AM },
-    {  7100000, MOD_LSB },
-    { 14100000, MOD_USB },
-    { 21100000, MOD_USB },
-    { 26800000, MOD_FM },
-    { 27500000, MOD_FM },
-    { 28400000, MOD_FM },
-    {  2932000, MOD_USB },
-    {  5628000, MOD_USB },
-    {  6655000, MOD_USB },
-    {  8951000, MOD_USB },
-    { 10048000, MOD_USB },
-    { 11330000, MOD_USB },
-    { 13273000, MOD_USB },
-    { 17904000, MOD_USB }
+    {   567000, MOD_AM, 48 },
+    {   747000, MOD_AM, 48 },
+    {  1287000, MOD_AM, 48 },
+    {  1440000, MOD_AM, 48 },
+    {  7100000, MOD_LSB, 48 },
+    { 14100000, MOD_USB, 48 },
+    { 21100000, MOD_USB, 48 },
+    { 26800050, MOD_FM, 192 },
+    { 27500050, MOD_FM, 192 },
+    { 28400050, MOD_FM, 192 },
+    {  2932000, MOD_USB, 48 },
+    {  5628000, MOD_USB, 48 },
+    {  6655000, MOD_USB, 48 },
+    {  8951000, MOD_USB, 48 },
+    { 10048000, MOD_USB, 48 },
+    { 11330000, MOD_USB, 48 },
+    { 13273000, MOD_USB, 48 },
+    { 17904000, MOD_USB, 48 }
   }
 };
 
@@ -174,6 +174,18 @@ set_tune(int hz)
 {
   center_frequency = hz - mode_freq_offset;
   si5351_set_frequency(center_frequency * 4);
+}
+
+static int current_fs;
+
+void
+set_fs(int fs)
+{
+  if (fs != current_fs) {
+    i2sStopExchange(&I2SD2);
+    tlv320aic3204_set_fs(fs);
+    i2sStartExchange(&I2SD2);
+  }
 }
 
 
@@ -513,6 +525,7 @@ static void cmd_fs(BaseSequentialStream *chp, int argc, char *argv[])
     i2sStopExchange(&I2SD2);
     tlv320aic3204_set_fs(fs);
     i2sStartExchange(&I2SD2);
+    uistat.fs = fs;
   } else {
     chprintf(chp, "usage: fs {48|96|192}\r\n");
   }
@@ -568,6 +581,7 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
       }
       config.channels[channel].freq = uistat.freq;
       config.channels[channel].modulation = uistat.modulation;
+      config.channels[channel].fs = uistat.fs;
     } else {
       channel = atoi(argv[0]);
       if (channel < 0 || channel >= CHANNEL_MAX) {

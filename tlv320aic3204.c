@@ -171,6 +171,7 @@ const uint8_t conf_data_unmute[] = {
 };
 
 static const uint8_t conf_data_divoff[] = {
+  2, 0x51, 0x00, /* Power down Left and Right ADC Channels */
   2, 0x0b, 0x00, /* Power down NDAC divider */
   2, 0x0c, 0x00, /* Power down MDAC divider */
   2, 0x12, 0x00, /* Power down NADC divider */
@@ -191,6 +192,7 @@ void tlv320aic3204_init(void)
 void tlv320aic3204_set_fs(int fs)
 {
   tlv320aic3204_config(conf_data_divoff);
+  wait_ms(40);
 
   if (fs == 48)
     tlv320aic3204_config(conf_data_clk);
@@ -198,6 +200,8 @@ void tlv320aic3204_set_fs(int fs)
     tlv320aic3204_config(conf_data_clk_96kHz);
   else if (fs == 192)
     tlv320aic3204_config(conf_data_clk_192kHz);
+
+  tlv320aic3204_config(conf_data_unmute);
 }
 
 void tlv320aic3204_set_impedance(int imp)
