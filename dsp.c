@@ -479,6 +479,7 @@ void
 fm_demod(int16_t *src, int16_t *dst, size_t len)
 {
     int32_t *s = __SIMD32(src);
+    int32_t *dst32 = __SIMD32(dst);
 	unsigned int i;
 	uint32_t x0 = fm_demod_state.last;
     q15_t v;
@@ -518,8 +519,8 @@ fm_demod(int16_t *src, int16_t *dst, size_t len)
 		ang += a + (((b - a) * f) >> 8);
 		if (neg)
 			ang = -ang;
-		v = __SSAT(ang/16, 16);
-        dst[i] = dst[i+1] = v;
+		v = __SSAT(ang/64, 16);
+        *dst32++ = __PKHBT(v, v, 16);
 		x0 = x1;
 	}
 	fm_demod_state.last = x0;

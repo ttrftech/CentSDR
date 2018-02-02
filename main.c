@@ -176,12 +176,13 @@ set_tune(int hz)
   si5351_set_frequency(center_frequency * 4);
 }
 
-static int current_fs;
+static int current_fs = 48;
 
 void
 set_fs(int fs)
 {
   if (fs != current_fs) {
+    current_fs = fs;
     i2sStopExchange(&I2SD2);
     tlv320aic3204_set_fs(fs);
     i2sStartExchange(&I2SD2);
