@@ -391,6 +391,18 @@ static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_gain(gain);
 }
 
+static void cmd_phase(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int value;
+    if (argc != 1) {
+        chprintf(chp, "usage: phase {adjust value(-128-127)}\r\n");
+        return;
+    }
+
+    value = atoi(argv[0]);
+    tlv320aic3204_set_adc_phase_adjust(value);
+}
+
 static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
@@ -660,6 +672,7 @@ static const ShellCommand commands[] =
     { "channel", cmd_channel },
     { "save", cmd_save },
     { "clearconfig", cmd_clearconfig },
+    { "phase", cmd_phase },
     { NULL, NULL }
 };
 

@@ -117,7 +117,7 @@ static const uint8_t conf_data_clk_192kHz[] = {
   2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
   2, 0x0d, 0x00, /* Program the OSR of DAC to 32 */
   2, 0x0e, 0x20,
-  2, 0x3c, 20, //0x08, /* Set the DAC Mode to PRB_P20 (reduce resource) */
+  2, 0x3c, 17, //0x08, /* Set the DAC Mode to PRB_P17 (reduce resource) */
   2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
   2, 0x1e, 0x80 + 7, /* Enable the BCLKN divider with value 7 */
   2, 0x25, 0xee, /* DAC power up */
@@ -183,7 +183,6 @@ void tlv320aic3204_init(void)
 {
   tlv320aic3204_config(conf_data_pll);
   tlv320aic3204_config(conf_data_clk);
-  //tlv320aic3204_config(conf_data_clk_192kHz);
   tlv320aic3204_config(conf_data_routing);
   wait_ms(40);
   tlv320aic3204_config(conf_data_unmute);
@@ -201,6 +200,7 @@ void tlv320aic3204_set_fs(int fs)
   else if (fs == 192)
     tlv320aic3204_config(conf_data_clk_192kHz);
 
+  //wait_ms(20);
   tlv320aic3204_config(conf_data_unmute);
 }
 
@@ -354,5 +354,10 @@ int8_t tlv320aic3204_get_left_agc_gain(void)
 int8_t tlv320aic3204_get_right_agc_gain(void)
 {
     return tlv320aic3204_read(0x65); /* Right Channel AGC Gain Flag */
+}
+
+void tlv320aic3204_set_adc_phase_adjust(int8_t adjust)
+{
+  tlv320aic3204_write(0x55, adjust);
 }
 

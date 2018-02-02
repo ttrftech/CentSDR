@@ -51,6 +51,7 @@ extern void tlv320aic3204_set_impedance(int imp);
 extern int tlv320aic3204_get_sticky_flag_register(void);
 extern int8_t tlv320aic3204_get_left_agc_gain(void);
 extern int8_t tlv320aic3204_get_right_agc_gain(void);
+extern void tlv320aic3204_set_adc_phase_adjust(int8_t adjust);
 
 #define AIC3204_STICKY_ADC_OVERFLOW 0x0c
 
