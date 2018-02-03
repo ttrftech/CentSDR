@@ -540,6 +540,7 @@ stereo_separate_init(void)
 	stereo_separate_state.phase_step = stereo_separate_state.phase_step_default;
 
 	stereo_separate_state.corr = 0;
+	stereo_separate_state.integrator = 0;
 	stereo_separate_state.sdi = 0;
 	stereo_separate_state.sdq = 0;
 }
@@ -565,12 +566,13 @@ stereo_separate(int16_t *src, int16_t *dest, int32_t length)
 		int16_t c = cs >> 16;
 
         // sin(2t) = 2sin(t)cos(t)
-		int16_t ss = (int32_t)(c * s) >> (15-1-1);
+		int16_t ss = (int32_t)(c * s) >> (16 - 1);
 
         // frequency shift
 		int32_t x = src[i];
-		dest[i] = (ss * x) >> (15-1-1);
-
+		dest[i] = (ss * x) >> (16 - 2);
+        src[i] = src[i] / 2;
+        
         // correlate 19kHz pilot carrier
 		di += (c * x) >> 16;
 		dq += (s * x) >> 16;
@@ -603,16 +605,19 @@ stereo_separate(int16_t *src, int16_t *dest, int32_t length)
 		stereo_separate_state.corr = corr;
 		stereo_separate_state.corr_ave = (stereo_separate_state.corr_ave * 15 + corr) / 16;
 
-        // feedback phase step
-        phase_step = stereo_separate_state.phase_step_default - stereo_separate_state.corr_ave * 128;
-        //phase_step += -stereo_separate_state.corr_ave;
-		stereo_separate_state.phase_step = phase_step;
-
 		int32_t d = stereo_separate_state.corr_ave - corr;
 		int32_t sd = (stereo_separate_state.corr_std * 15 + d * d) / 16;
 		if (sd > 32767)
 			sd = 32767;
 		stereo_separate_state.corr_std = sd;
+
+        // feedback phase step
+        phase_step = stereo_separate_state.phase_step_default
+          - stereo_separate_state.integrator - corr * 128;
+        //phase_step += -stereo_separate_state.corr_ave;
+		stereo_separate_state.phase_step = phase_step;
+        if (stereo_separate_state.corr_std < 100)
+          stereo_separate_state.integrator += stereo_separate_state.corr_ave;
 	}
 }
 
