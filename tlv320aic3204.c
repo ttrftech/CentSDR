@@ -190,6 +190,9 @@ void tlv320aic3204_init(void)
 
 void tlv320aic3204_set_fs(int fs)
 {
+  if (fs != 48 && fs != 96 && fs != 192)
+    return;
+
   tlv320aic3204_config(conf_data_divoff);
   wait_ms(40);
 

@@ -181,6 +181,9 @@ static int current_fs = 48;
 void
 set_fs(int fs)
 {
+  if (fs != 48 && fs != 96 && fs != 192)
+    return;
+
   if (fs != current_fs) {
     current_fs = fs;
     i2sStopExchange(&I2SD2);
