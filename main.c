@@ -153,6 +153,7 @@ static signal_process_func_t demod_funcs[] = {
   lsb_demod,
   usb_demod,
   am_demod,
+  fm_demod,
   fm_demod_stereo,
 };
 
@@ -160,6 +161,7 @@ static const int16_t demod_freq_offset[] = {
   0,
   0,
   AM_FREQ_OFFSET,
+  0,
   0,
 };
 
@@ -350,6 +352,7 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
 
   chprintf(chp, "fm stereo: %d %d\r\n", stereo_separate_state.sdi, stereo_separate_state.sdq);
   chprintf(chp, "  corr: %d %d %d\r\n", stereo_separate_state.corr, stereo_separate_state.corr_ave, stereo_separate_state.corr_std);
+  chprintf(chp, "  int: %d\r\n", stereo_separate_state.integrator);
   
 #if 0
   p = &tx_buffer[0];
@@ -528,6 +531,9 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
       disp_update();
     } else if (strncmp(cmd, "fm", 1) == 0) {
       set_modulation(MOD_FM);
+      disp_update();
+    } else if (strncmp(cmd, "fms", 3) == 0) {
+      set_modulation(MOD_FM_STEREO);
       disp_update();
     }
 }

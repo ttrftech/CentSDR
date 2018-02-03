@@ -567,7 +567,7 @@ struct {
       { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
     { buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
       { 48000, -160*2, 2, 0,           160, 21, 0, 2, "kHz" } },
-    { tx_buffer, tx_buffer, AUDIO_BUFFER_LEN * 2,
+    { tx_buffer, NULL, AUDIO_BUFFER_LEN * 2,
       { 48000,      0, 1, 0,             0, 43, 0, 2, "kHz" } }
 };
 

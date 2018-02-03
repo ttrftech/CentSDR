@@ -110,9 +110,11 @@ typedef struct {
     int32_t sdi; 
 	int32_t sdq;
 
-    int16_t corr;
-	int16_t corr_ave;
-	int16_t corr_std;
+    int32_t corr;
+	int32_t corr_ave;
+	int32_t corr_std;
+    int16_t integrator;
+  
 } stereo_separate_state_t;
 
 extern stereo_separate_state_t stereo_separate_state;
@@ -192,6 +194,7 @@ typedef enum {
 	MOD_USB,
 	MOD_AM,
 	MOD_FM,
+	MOD_FM_STEREO,
 	MOD_MAX
 } modulation_t;
 
