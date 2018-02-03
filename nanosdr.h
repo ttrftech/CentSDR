@@ -24,6 +24,8 @@
 
 extern int16_t measured_power_dbm;
 
+void set_agc_mode(int agcmode);
+
 /*
  * tlv320aic3204.c
  */
@@ -76,8 +78,9 @@ void am_demod(int16_t *src, int16_t *dst, size_t len);
 void lsb_demod(int16_t *src, int16_t *dst, size_t len);
 void usb_demod(int16_t *src, int16_t *dst, size_t len);
 void fm_demod(int16_t *src, int16_t *dst, size_t len);
+void fm_demod_stereo(int16_t *src, int16_t *dst, size_t len);
 
-void set_agc_mode(int agcmode);
+void dsp_init(void);
 
 #define AM_FREQ_OFFSET 10000
 #define SSB_FREQ_OFFSET 1300
@@ -94,6 +97,26 @@ typedef struct {
   int32_t accumlate;
   int16_t offset;
 } dcrejection_t;
+
+
+// state variables for stereo separation
+
+typedef struct {
+	uint32_t phase_step_default;
+	uint32_t phase_step;
+	uint32_t phase_accum;
+
+    // average of correlation vector angle
+    int32_t sdi; 
+	int32_t sdq;
+
+    int16_t corr;
+	int16_t corr_ave;
+	int16_t corr_std;
+} stereo_separate_state_t;
+
+extern stereo_separate_state_t stereo_separate_state;
+
 
 /*
  * font: Font5x7.c numfont32x24.c numfont20x24.c icons.c

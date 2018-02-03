@@ -153,7 +153,7 @@ static signal_process_func_t demod_funcs[] = {
   lsb_demod,
   usb_demod,
   am_demod,
-  fm_demod,
+  fm_demod_stereo,
 };
 
 static const int16_t demod_freq_offset[] = {
@@ -347,6 +347,9 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   int gain0 = tlv320aic3204_get_left_agc_gain();
   int gain1 = tlv320aic3204_get_right_agc_gain();
   chprintf(chp, "agc gain: %d %d\r\n", gain0, gain1);
+
+  chprintf(chp, "fm stereo: %d %d\r\n", stereo_separate_state.sdi, stereo_separate_state.sdq);
+  chprintf(chp, "  corr: %d %d %d\r\n", stereo_separate_state.corr, stereo_separate_state.corr_ave, stereo_separate_state.corr_std);
   
 #if 0
   p = &tx_buffer[0];
@@ -769,13 +772,8 @@ int __attribute__((noreturn)) main(void)
   i2sStartExchange(&I2SD2);
 #endif
   
-  //tone_generate(440);
-
-  //si5351_set_frequency(48001);
-  //si5351_set_frequency(567*4); // NHK1
-  //set_tune(567000); // NHK1
-  //set_tune(35000000);
-
+  dsp_init();
+  
   /*
    * SPI LCD Initialize
    */
