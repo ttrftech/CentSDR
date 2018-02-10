@@ -805,10 +805,16 @@ waterfall_init(void)
 /* 46 * 88 = 4048 pixels < sizeof spi_buffer (4096) */
 /* 320 / 46 = 6.96  -> draw block 7 times */
 
+// FS=+-44
+//   22-16=6 : +-352
+//   22-3-16=3 : +-2816
+
+static int mag_shift = 0;
+
 static inline int
 v2ypos(q31_t v)
 {
-  v >>= 22;
+  v >>= 22 - mag_shift;
   v += HEIGHT/2;
   if (v < 0) v = 0;
   if (v >= HEIGHT) v = HEIGHT-1;
@@ -835,13 +841,19 @@ draw_waveform(void)
     int xx;
     int w;
     int i;
+
+    if (uistat.wfdispmode == WATERFALL)
+      return;
+
+    if (uistat.wfdispmode == WAVEFORM_MAG)
+      mag_shift = 3;
+    else
+      mag_shift = 0;
+
     int i0 = v2ypos(buf[(512-160)*2-2]);
     int q0 = v2ypos(buf[(512-160)*2-1]);
     int i1 = v2ypos(buf[(512-160)*2+0]);
     int q1 = v2ypos(buf[(512-160)*2+1]);
-    
-    if (uistat.wfdispmode == WATERFALL)
-      return;
 
     xx = 0;
 	for (x = 0; x < 320; ) {

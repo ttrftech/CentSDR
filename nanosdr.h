@@ -218,7 +218,7 @@ typedef struct {
 	int8_t digit; /* 0~5 */
     int freq_offset;
     enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
-    enum { WATERFALL, WAVEFORM, WFDISP_MODE_MAX } wfdispmode;
+    enum { WATERFALL, WAVEFORM, WAVEFORM_MAG, WFDISP_MODE_MAX } wfdispmode;
 } uistat_t;
 
 extern uistat_t uistat;
