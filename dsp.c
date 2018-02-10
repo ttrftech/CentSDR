@@ -437,7 +437,9 @@ usb_demod(int16_t *src, int16_t *dst, size_t len)
 
 
 struct {
-	uint32_t last;
+  uint32_t last;
+  uint32_t pre0;
+  uint32_t pre1;
 } fm_demod_state;
 
 const int16_t arctantbl[256+2] = {
@@ -475,6 +477,46 @@ const int16_t arctantbl[256+2] = {
 #define Q15_PI_4	25736	// 3.14159/4*32768
 
 
+static inline int16_t
+atan_2iq(uint32_t iq0, uint32_t iq1)
+{
+  int32_t re = __SMUAD(iq1, iq0);	// I0*I1 + Q0*Q1
+  int32_t im = __SMUSDX(iq1, iq0);	// I0*Q1 - I1*Q0
+  int32_t ang = 0;
+  uint8_t neg = 0;
+  if (re < 0) {
+    re = -re;
+    neg = !neg;
+    ang += -Q15_PI_4 * 4;
+  }
+  if (im < 0) {
+    im = -im;
+    neg = !neg;
+  }
+  if (im >= re) {
+    int32_t x = im;
+    im = re;
+    re = x;
+    neg = !neg;
+    ang = -ang - Q15_PI_4 * 2;
+  }
+  {
+    uint32_t d, f;
+    int32_t a, b;
+    int idx;
+    d = im << 0;
+    d /= re >> 16;
+    idx = (d >> 8) & 0xff;
+    f = d & 0xff;
+    a = arctantbl[idx];
+    b = arctantbl[idx+1];
+    ang += a + (((b - a) * f) >> 8);
+  }
+  if (neg)
+    ang = -ang;
+  return __SSAT(ang/16, 16);
+}
+
 void
 fm_demod(int16_t *src, int16_t *dst, size_t len)
 {
@@ -487,39 +529,7 @@ fm_demod(int16_t *src, int16_t *dst, size_t len)
     
 	for (i = 0; i < len; i += 2) {
         uint32_t x1 = *s++;
-		int32_t re = __SMUAD(x1, x0);	// I0*I1 + Q0*Q1
-		int32_t im = __SMUSDX(x1, x0);	// I0*Q1 - I1*Q0
-		int32_t ang = 0;
-		uint8_t neg = 0;
-		uint32_t d, f;
-		int32_t a, b;
-		int idx;
-		if (re < 0) {
-			re = -re;
-			neg = !neg;
-			ang += -Q15_PI_4 * 4;
-		}
-		if (im < 0) {
-			im = -im;
-			neg = !neg;
-		}
-		if (im >= re) {
-			int32_t x = im;
-			im = re;
-			re = x;
-			neg = !neg;
-			ang = -ang - Q15_PI_4 * 2;
-		}
-		d = im << 0;
-		d /= re >> 16;
-		idx = (d >> 8) & 0xff;
-		f = d & 0xff;
-		a = arctantbl[idx];
-		b = arctantbl[idx+1];
-		ang += a + (((b - a) * f) >> 8);
-		if (neg)
-			ang = -ang;
-		v = __SSAT(ang/16, 16);
+        v = atan_2iq(x0, x1);
         *dst32++ = __PKHBT(v, v, 16);
 		x0 = x1;
 	}
@@ -656,45 +666,11 @@ fm_demod0(int16_t *src, int16_t *dst, size_t len)
     int32_t *s = __SIMD32(src);
 	unsigned int i;
 	uint32_t x0 = fm_demod_state.last;
-    q15_t v;
     disp_fetch_samples();
-    
+
 	for (i = 0; i < len; i += 2) {
         uint32_t x1 = *s++;
-		int32_t re = __SMUAD(x1, x0);	// I0*I1 + Q0*Q1
-		int32_t im = __SMUSDX(x1, x0);	// I0*Q1 - I1*Q0
-		int32_t ang = 0;
-		uint8_t neg = 0;
-		uint32_t d, f;
-		int32_t a, b;
-		int idx;
-		if (re < 0) {
-			re = -re;
-			neg = !neg;
-			ang += -Q15_PI_4 * 4;
-		}
-		if (im < 0) {
-			im = -im;
-			neg = !neg;
-		}
-		if (im >= re) {
-			int32_t x = im;
-			im = re;
-			re = x;
-			neg = !neg;
-			ang = -ang - Q15_PI_4 * 2;
-		}
-		d = im << 0;
-		d /= re >> 16;
-		idx = (d >> 8) & 0xff;
-		f = d & 0xff;
-		a = arctantbl[idx];
-		b = arctantbl[idx+1];
-		ang += a + (((b - a) * f) >> 8);
-		if (neg)
-			ang = -ang;
-		v = __SSAT(ang/128, 16);
-        *dst++ = v;
+        *dst++ = atan_2iq(x0, x1);
 		x0 = x1;
 	}
 	fm_demod_state.last = x0;
