@@ -105,12 +105,6 @@ int btn_check(void)
 #define VOLUME_MIN -7
 #define RFGAIN_MAX 95
 
-#define AGCMODE_MAX 4
-int16_t agc_slowness_table[AGCMODE_MAX] = {
-		-1, 10, 5, 1
-};
-
-
 static void
 set_gain(int gain)
 {

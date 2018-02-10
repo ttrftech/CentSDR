@@ -391,13 +391,22 @@ static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
-    if (argc != 1) {
-        chprintf(chp, "usage: gain {gain(0-95)}\r\n");
+    if (argc != 1 && argc != 2) {
+        chprintf(chp, "usage: gain {pga gain(0-95)} {digital gain(-24-40)}\r\n");
         return;
     }
 
     gain = atoi(argv[0]);
     tlv320aic3204_set_gain(gain);
+    uistat.rfgain = gain;
+    
+    if (argc == 2) {
+      gain = atoi(argv[1]);
+      tlv320aic3204_set_digital_gain(gain);
+      uistat.rfgain += gain;
+    }
+
+    disp_update();
 }
 
 static void cmd_phase(BaseSequentialStream *chp, int argc, char *argv[])
@@ -453,6 +462,7 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
     const char *cmd;
     if (argc == 0) {
       chprintf(chp, "usage: agc {cmd} [args...]\r\n");
+      chprintf(chp, "\tmanual/slow/mid/fast\r\n");
       chprintf(chp, "\tenable/disable\r\n");
       chprintf(chp, "\tlevel {0-7}\r\n");
       chprintf(chp, "\thysteresis {0-3}\r\n");
@@ -463,9 +473,17 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
     }
 
     cmd = argv[0];
-    if (strncmp(cmd, "di", 2) == 0) {
+    if (strncmp(cmd, "manual", 3) == 0) {
+      set_agc_mode(AGC_MANUAL);
+    } else if (strncmp(cmd, "slow", 2) == 0) {
+      set_agc_mode(AGC_SLOW);
+    } else if (strncmp(cmd, "mid", 2) == 0) {
+      set_agc_mode(AGC_MID);
+    } else if (strncmp(cmd, "fast", 2) == 0) {
+      set_agc_mode(AGC_FAST);
+    } else if (strncmp(cmd, "di", 2) == 0) {
       tlv320aic3204_agc_config(NULL);
-    } else if (strncmp(cmd, "en", 2) == 0) {
+    } else if (strncmp(cmd, "enable", 2) == 0) {
       tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "le", 2) == 0 && argc == 2) {
       config.agc.target_level = atoi(argv[1]);
@@ -483,7 +501,7 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
       if (argc >= 3)
         config.agc.decay_scale = atoi(argv[2]);
       tlv320aic3204_agc_config(&config.agc);
-    } else if (strncmp(cmd, "ma", 2) == 0 && argc >= 2) {
+    } else if (strncmp(cmd, "max", 3) == 0 && argc >= 2) {
       config.agc.maximum_gain = atoi(argv[1]);
       tlv320aic3204_agc_config(&config.agc);
     }
@@ -491,10 +509,13 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
 
 void set_agc_mode(int mode)
 {
-  switch (mode) {
-  case AGC_MANUAL:
+  if (mode == AGC_MANUAL) {
     tlv320aic3204_agc_config(NULL);
+    uistat.agcmode = mode;
+    disp_update();
     return;
+  }
+  switch (mode) {
   case AGC_FAST:
     config.agc.decay = 0;
     config.agc.decay_scale = 0;
@@ -509,6 +530,8 @@ void set_agc_mode(int mode)
     break;
   }
   tlv320aic3204_agc_config(&config.agc);
+  uistat.agcmode = mode;
+  disp_update();
 }
 
 static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
