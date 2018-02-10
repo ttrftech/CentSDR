@@ -560,14 +560,14 @@ struct {
 	spectrumdisplay_param_t param;
 } spdisp_source[SPDISP_MODE_MAX] = {
     // I/Q interleaved
-    { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN * 2,
+    { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN,
       // sps, off, stride, gain,   origin, step, base, unit, unitname
       { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
     { buffer[0], buffer[1], AUDIO_BUFFER_LEN,
       { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
     { buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
       { 48000, -160*2, 2, 0,           160, 21, 0, 2, "kHz" } },
-    { tx_buffer, NULL, AUDIO_BUFFER_LEN * 2,
+    { tx_buffer, tx_buffer, AUDIO_BUFFER_LEN,
       { 48000,      0, 1, 0,             0, 43, 0, 2, "kHz" } }
 };
 

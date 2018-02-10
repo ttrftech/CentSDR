@@ -232,7 +232,6 @@ extern uistat_t uistat;
 typedef struct {
   uint32_t freq;
   modulation_t modulation;
-  uint8_t fs;
 } channel_t;
 
 typedef struct {

@@ -128,47 +128,46 @@ config_t config = {
   },
   .channels = {
     /*    freq, modulation */
-    {   567000, MOD_AM, 48 },
-    {   747000, MOD_AM, 48 },
-    {  1287000, MOD_AM, 48 },
-    {  1440000, MOD_AM, 48 },
-    {  7100000, MOD_LSB, 48 },
-    { 14100000, MOD_USB, 48 },
-    { 21100000, MOD_USB, 48 },
-    { 26800050, MOD_FM, 192 },
-    { 27500050, MOD_FM, 192 },
-    { 28400050, MOD_FM, 192 },
-    {  2932000, MOD_USB, 48 },
-    {  5628000, MOD_USB, 48 },
-    {  6655000, MOD_USB, 48 },
-    {  8951000, MOD_USB, 48 },
-    { 10048000, MOD_USB, 48 },
-    { 11330000, MOD_USB, 48 },
-    { 13273000, MOD_USB, 48 },
-    { 17904000, MOD_USB, 48 }
+    {   567000, MOD_AM },
+    {   747000, MOD_AM },
+    {  1287000, MOD_AM },
+    {  1440000, MOD_AM },
+    {  7100000, MOD_LSB },
+    { 14100000, MOD_USB },
+    { 21100000, MOD_USB },
+    { 26800050, MOD_FM },
+    { 27500050, MOD_FM },
+    { 28400050, MOD_FM },
+    {  2932000, MOD_USB },
+    {  5628000, MOD_USB },
+    {  6655000, MOD_USB },
+    {  8951000, MOD_USB },
+    { 10048000, MOD_USB },
+    { 11330000, MOD_USB },
+    { 13273000, MOD_USB },
+    { 17904000, MOD_USB }
   }
 };
 
-static signal_process_func_t demod_funcs[] = {
-  lsb_demod,
-  usb_demod,
-  am_demod,
-  fm_demod,
-  fm_demod_stereo,
-};
-
-static const int16_t demod_freq_offset[] = {
-  0,
-  0,
-  AM_FREQ_OFFSET,
-  0,
-  0,
+struct {
+  signal_process_func_t demod_func;
+  int16_t freq_offset;
+  int16_t fs;
+} mod_table[] = {
+  { lsb_demod,             0,  48 },
+  { usb_demod,             0,  48 },
+  { am_demod, AM_FREQ_OFFSET,  48 },
+  { fm_demod,              0, 192 },
+  { fm_demod_stereo,       0, 192 },
 };
 
 void set_modulation(modulation_t mod)
 {
-  signal_process = demod_funcs[mod];
-  mode_freq_offset = demod_freq_offset[mod];
+  if (mod >= MOD_MAX)
+    return;
+  set_fs(mod_table[mod].fs);
+  signal_process = mod_table[mod].demod_func;
+  mode_freq_offset = mod_table[mod].freq_offset;
 }
 
 void
@@ -632,7 +631,6 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
       }
       config.channels[channel].freq = uistat.freq;
       config.channels[channel].modulation = uistat.modulation;
-      config.channels[channel].fs = uistat.fs;
     } else {
       channel = atoi(argv[0]);
       if (channel < 0 || channel >= CHANNEL_MAX) {
