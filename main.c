@@ -535,6 +535,9 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
     } else if (strncmp(cmd, "fm", 1) == 0) {
       set_modulation(MOD_FM);
       disp_update();
+    } else if (strncmp(cmd, "fms", 3) == 0) {
+      set_modulation(MOD_FM_STEREO);
+      disp_update();
     }
 }
 

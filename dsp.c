@@ -387,24 +387,24 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 	arm_biquad_cascade_df1_q15(&bq_am_i, buffer[0], buffer2[0], len/2);
 	arm_biquad_cascade_df1_q15(&bq_am_q, buffer[1], buffer2[1], len/2);
 
-    int32_t acc_z = 0;
+    //int32_t acc_z = 0;
 	bufi = buffer2[0];
 	bufq = buffer2[1];
     for (i = 0; i < len/2; i++) {
       int32_t x = *bufi++;
       int32_t y = *bufq++;
       int32_t z;
-      x = x/2;
-      y = y/2;
+      //x = x/2;
+      //y = y/2;
       z = (int16_t)_VSQRTF((float)(x*x+y*y));
       //z = (int16_t)sqrtf(x*x+y*y);
-      acc_z += z;
-      z -= ave_z;
+      //acc_z += z;
+      //z -= ave_z;
       if (z > 32767) z = 32767;
       if (z < -32768) z = -32768;
       *d++ = __PKHBT(z, z, 16);
 	}
-    ave_z = ave_z * 0.98 + (0.02 * acc_z / (len/2));
+    //ave_z = ave_z * 0.98 + (0.02 * acc_z / (len/2));
 }
 #else
 {
@@ -519,7 +519,7 @@ fm_demod(int16_t *src, int16_t *dst, size_t len)
 		ang += a + (((b - a) * f) >> 8);
 		if (neg)
 			ang = -ang;
-		v = __SSAT(ang/64, 16);
+		v = __SSAT(ang/128, 16);
         *dst32++ = __PKHBT(v, v, 16);
 		x0 = x1;
 	}
@@ -566,12 +566,12 @@ stereo_separate(int16_t *src, int16_t *dest, int32_t length)
 		int16_t c = cs >> 16;
 
         // sin(2t) = 2sin(t)cos(t)
-		int16_t ss = (int32_t)(c * s) >> (16 - 1);
+		int16_t ss = (int32_t)(c * s) >> (16 - 2);
 
         // frequency shift
 		int32_t x = src[i];
-		dest[i] = (ss * x) >> (16 - 2);
-        src[i] = src[i] / 2;
+		dest[i] = (ss * x) >> (16 - 1);
+        //src[i] = src[i] / 2;
         
         // correlate 19kHz pilot carrier
 		di += (c * x) >> 16;
@@ -693,7 +693,7 @@ fm_demod0(int16_t *src, int16_t *dst, size_t len)
 		ang += a + (((b - a) * f) >> 8);
 		if (neg)
 			ang = -ang;
-		v = __SSAT(ang/32, 16);
+		v = __SSAT(ang/128, 16);
         *dst++ = v;
 		x0 = x1;
 	}
