@@ -309,7 +309,7 @@ ui_process(void)
           uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
           recall_channel(uistat.channel);
         } else if (uistat.mode == VOLUME) {
-          uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
+          uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX+1);
           set_volume(uistat.volume);
         } else if (uistat.mode == FREQ) {
           int32_t step = 1;
@@ -320,10 +320,10 @@ ui_process(void)
             uistat.freq = freq;
           update_frequency();
         } else if (uistat.mode == RFGAIN) {
-          uistat.rfgain = minmax(uistat.rfgain + tick, -24, RFGAIN_MAX + 40);
+          uistat.rfgain = minmax((int)uistat.rfgain + tick, -24, RFGAIN_MAX + 40+1);
           set_gain(uistat.rfgain);
         } else if (uistat.mode == AGC) {
-          uistat.agcmode = minmax(uistat.agcmode + tick, 0, 4);
+          uistat.agcmode = minmax(uistat.agcmode + tick, 0, AGC_MAX);
           set_agc_mode(uistat.agcmode);
         } else if (uistat.mode == MOD) {
           if (tick > 0 && uistat.modulation < MOD_MAX-1) {

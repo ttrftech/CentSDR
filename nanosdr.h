@@ -211,10 +211,10 @@ typedef struct {
 
     uint32_t freq;
 	modulation_t modulation;
-	int8_t rfgain;
+	int16_t rfgain;
     uint8_t fs; /* 48, 96, 192 */
 
-	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
+    enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST, AGC_MAX } agcmode;
 	int8_t digit; /* 0~5 */
     int freq_offset;
     enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
