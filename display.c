@@ -553,22 +553,12 @@ typedef struct {
 // 320pixel = 1024pt = 48kHz
 // 35.55 pixel = 5kHz
 
-struct {
-	void *ibuf;
-	void *qbuf;
-	uint32_t length;
-	spectrumdisplay_param_t param;
-} spdisp_source[SPDISP_MODE_MAX] = {
-    // I/Q interleaved
-    { rx_buffer, rx_buffer, AUDIO_BUFFER_LEN,
-      // sps, off, stride, gain,   origin, step, base, unit, unitname
-      { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
-    { buffer[0], buffer[1], AUDIO_BUFFER_LEN,
-      { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" } },
-    { buffer2[0], buffer2[1], AUDIO_BUFFER_LEN,
-      { 48000, -160*2, 2, 0,           160, 21, 0, 2, "kHz" } },
-    { tx_buffer, tx_buffer, AUDIO_BUFFER_LEN,
-      { 48000,      0, 1, 0,             0, 43, 0, 2, "kHz" } }
+const spectrumdisplay_param_t spdispparam_tbl[SPDISP_MODE_MAX] = {
+  // sps, off, stride, gain,   origin, step, base, unit, unitname
+  { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" },
+  { 48000, -160*3, 3, 0,           160, 36, 0, 5, "kHz" },
+  { 48000, -160*2, 2, 0,           160, 21, 0, 2, "kHz" },
+  { 48000,      0, 1, 0,             0, 43, 0, 2, "kHz" }
 };
 
 // when event sent with SEV from M4 core, filled following data
@@ -591,7 +581,7 @@ spectrumdisplay_t spdispinfo;
 q31_t SPDISP_BUFFER[SPDISP_BUFFER_LENGTH];
 
 q31_t *spdisp_fetch_current = SPDISP_BUFFER;
-uint32_t spdisp_fetch_rest = 0;
+int16_t spdisp_fetch_rest = 0;
 const int16_t *spdisp_wf_current = winfunc_blackmanharris;
 
 
@@ -687,16 +677,22 @@ disp_fetch_samples(void)
 		spdisp_wf_current = winfunc_table;
 	}
 
-	size_t length = spdisp_fetch_rest;
+	int16_t length = spdisp_fetch_rest;
 	uint16_t mode = uistat.spdispmode;
-	if (length > spdisp_source[mode].length)
-		length = spdisp_source[mode].length;
-	if (spdisp_source[mode].qbuf == NULL) {
-		window_real_15to31(spdisp_fetch_current, spdisp_source[mode].ibuf, length, spdisp_wf_current);
-    } else if (spdisp_source[mode].ibuf == spdisp_source[mode].qbuf) {
-		window_complex_interleaved_15to31(spdisp_fetch_current, spdisp_source[mode].ibuf, length, spdisp_wf_current);
-	} else {
-		window_complex_15to31(spdisp_fetch_current, spdisp_source[mode].ibuf, spdisp_source[mode].qbuf, length, spdisp_wf_current);
+	if (length > buffers_table[mode].length)
+		length = buffers_table[mode].length;
+
+	switch (buffers_table[mode].type) {
+    case BT_REAL:
+    case BT_SEPARATE:
+		window_real_15to31(spdisp_fetch_current, buffers_table[mode].buf0, length, spdisp_wf_current);
+        break;
+    case BT_INTERLEAVE:
+		window_complex_interleaved_15to31(spdisp_fetch_current, buffers_table[mode].buf0, length, spdisp_wf_current);
+        break;
+    case BT_IQ:
+		window_complex_15to31(spdisp_fetch_current, buffers_table[mode].buf0, buffers_table[mode].buf1, length, spdisp_wf_current);
+        break;
 	}
 	spdisp_fetch_current += length;
 	spdisp_fetch_rest -= length;
@@ -724,7 +720,7 @@ draw_spectrogram(void)
 	//return;
 	//uint16_t gainshift = spdispinfo.p.overgain;
 	uint16_t mode = uistat.spdispmode;
-    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
 	int i = param->offset;
 	int16_t stride = param->stride;
     int16_t tune_pos = param->origin;
@@ -914,7 +910,7 @@ draw_waterfall(void)
 	int x;
 	q31_t *buf = spdispinfo.buffer;
 	uint16_t mode = uistat.spdispmode;
-    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
 	uint16_t *block = spi_buffer;
 	int i = param->offset;
 	int stride = param->stride;
@@ -988,7 +984,7 @@ draw_tick_abs(void)
 {
 	char str[10];
 	uint16_t mode = uistat.spdispmode;
-    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
 	uint16_t bg = uistat.mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
 	int offset = param->origin;
 	//int step = param->tickstep;
@@ -1027,7 +1023,7 @@ draw_tick(void)
       draw_tick_abs();
       return;
     }
-    spectrumdisplay_param_t *param = &spdisp_source[mode].param;
+    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
 	int x = param->origin;
 	int base = param->tickbase;
 	int xx;

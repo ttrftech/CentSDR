@@ -109,10 +109,16 @@ static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
 }
 
 
-
-
 int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
+
+const buffer_ref_t buffers_table[BUFFERS_MAX] = {
+  { BT_INTERLEAVE, AUDIO_BUFFER_LEN, rx_buffer,  NULL },
+  { BT_IQ,         AUDIO_BUFFER_LEN, buffer[0],  buffer[1] },
+  { BT_IQ,         AUDIO_BUFFER_LEN, buffer2[0], buffer2[1] },
+  { BT_SEPARATE,   AUDIO_BUFFER_LEN, tx_buffer,  NULL }
+};
+
 
 signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;

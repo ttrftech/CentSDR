@@ -66,9 +66,20 @@ extern void tlv320aic3204_set_adc_phase_adjust(int8_t adjust);
 
 extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
-
 extern int16_t buffer[2][AUDIO_BUFFER_LEN];
 extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
+
+typedef enum { B_CAPTURE, B_IF1, B_IF2, B_PLAYBACK, BUFFERS_MAX } buffer_t;
+
+typedef struct {
+  enum { BT_INTERLEAVE, BT_IQ, BT_SEPARATE, BT_REAL } type;
+  int16_t length;
+  int16_t *buf0;
+  int16_t *buf1;
+} buffer_ref_t;
+
+extern const buffer_ref_t buffers_table[BUFFERS_MAX];
+
 
 typedef void (*signal_process_func_t)(int16_t *src, int16_t *dst, size_t len);
 
