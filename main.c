@@ -543,7 +543,7 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
 {
     const char *cmd;
     if (argc == 0) {
-      chprintf(chp, "usage: mode {am|lsb|usb}\r\n");
+      chprintf(chp, "usage: mode {lsb|usb|am|fm|fms}\r\n");
       return;
     }
 
@@ -562,9 +562,6 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
       disp_update();
     } else if (strncmp(cmd, "fm", 1) == 0) {
       set_modulation(MOD_FM);
-      disp_update();
-    } else if (strncmp(cmd, "fms", 3) == 0) {
-      set_modulation(MOD_FM_STEREO);
       disp_update();
     }
 }
