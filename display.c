@@ -742,7 +742,7 @@ disp_fetch_samples(int mode, int type, int16_t *buf0, int16_t *buf1, size_t bufl
       window_real_15to31(buf0, buflen);
       break;
     case BT_R_INTERLEAVE:
-      window_real_interleaved_15to31(buf0, buflen);
+      window_complex_interleaved_15to31(buf0, buflen);
       break;
 	}
 
