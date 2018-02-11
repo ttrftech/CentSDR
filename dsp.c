@@ -328,6 +328,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     int32_t *d = __SIMD32(dst);
     uint32_t i;
 
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+
     // shift frequency
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco1_phase);
@@ -336,11 +338,13 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
-    disp_fetch_samples();
+    disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
 
     // apply low pass filter
 	arm_biquad_cascade_df1_q15(&bq_i, buffer[0], buffer2[0], len/2);
 	arm_biquad_cascade_df1_q15(&bq_q, buffer[1], buffer2[1], len/2);
+
+    disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
 
     // shift frequency inverse
 	bufi = buffer2[0];
@@ -352,6 +356,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
         *d++ = __PKHBT(r, r, 16);
 	}
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
 
 __attribute__ ( ( always_inline ) ) __STATIC_INLINE
@@ -374,6 +380,9 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     int32_t *s = __SIMD32(src);
     int32_t *d = __SIMD32(dst);
     uint32_t i;
+
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+
     for (i = 0; i < len/2; i++) {
         uint32_t cossin = cos_sin(nco1_phase);
         nco1_phase -= PHASESTEP;
@@ -381,30 +390,34 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
-    disp_fetch_samples();
+    disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
 
     // apply low pass filter
 	arm_biquad_cascade_df1_q15(&bq_am_i, buffer[0], buffer2[0], len/2);
 	arm_biquad_cascade_df1_q15(&bq_am_q, buffer[1], buffer2[1], len/2);
 
-    int32_t acc_z = 0;
+    disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
+    
+    //int32_t acc_z = 0;
 	bufi = buffer2[0];
 	bufq = buffer2[1];
     for (i = 0; i < len/2; i++) {
       int32_t x = *bufi++;
       int32_t y = *bufq++;
       int32_t z;
-      x = x/2;
-      y = y/2;
+      //x = x/2;
+      //y = y/2;
       z = (int16_t)_VSQRTF((float)(x*x+y*y));
       //z = (int16_t)sqrtf(x*x+y*y);
-      acc_z += z;
-      z -= ave_z;
+      //acc_z += z;
+      //z -= ave_z;
       if (z > 32767) z = 32767;
       if (z < -32768) z = -32768;
       *d++ = __PKHBT(z, z, 16);
 	}
-    ave_z = ave_z * 0.98 + (0.02 * acc_z / (len/2));
+    //ave_z = ave_z * 0.98 + (0.02 * acc_z / (len/2));
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
 #else
 {
@@ -437,7 +450,9 @@ usb_demod(int16_t *src, int16_t *dst, size_t len)
 
 
 struct {
-	uint32_t last;
+  uint32_t last;
+  uint32_t pre1;
+  uint32_t pre2;
 } fm_demod_state;
 
 const int16_t arctantbl[256+2] = {
@@ -475,6 +490,46 @@ const int16_t arctantbl[256+2] = {
 #define Q15_PI_4	25736	// 3.14159/4*32768
 
 
+static inline int16_t
+atan_2iq(uint32_t iq0, uint32_t iq1)
+{
+  int32_t re = __SMUAD(iq1, iq0);	// I0*I1 + Q0*Q1
+  int32_t im = __SMUSDX(iq1, iq0);	// I0*Q1 - I1*Q0
+  int32_t ang = 0;
+  uint8_t neg = 0;
+  if (re < 0) {
+    re = -re;
+    neg = !neg;
+    ang += -Q15_PI_4 * 4;
+  }
+  if (im < 0) {
+    im = -im;
+    neg = !neg;
+  }
+  if (im >= re) {
+    int32_t x = im;
+    im = re;
+    re = x;
+    neg = !neg;
+    ang = -ang - Q15_PI_4 * 2;
+  }
+  {
+    uint32_t d, f;
+    int32_t a, b;
+    int idx;
+    d = im << 0;
+    d /= re >> 16;
+    idx = (d >> 8) & 0xff;
+    f = d & 0xff;
+    a = arctantbl[idx];
+    b = arctantbl[idx+1];
+    ang += a + (((b - a) * f) >> 8);
+  }
+  if (neg)
+    ang = -ang;
+  return __SSAT(ang/128, 16);
+}
+
 void
 fm_demod(int16_t *src, int16_t *dst, size_t len)
 {
@@ -483,45 +538,326 @@ fm_demod(int16_t *src, int16_t *dst, size_t len)
 	unsigned int i;
 	uint32_t x0 = fm_demod_state.last;
     q15_t v;
-    disp_fetch_samples();
+
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
     
 	for (i = 0; i < len; i += 2) {
         uint32_t x1 = *s++;
-		int32_t re = __SMUAD(x1, x0);	// I0*I1 + Q0*Q1
-		int32_t im = __SMUSDX(x1, x0);	// I0*Q1 - I1*Q0
-		int32_t ang = 0;
-		uint8_t neg = 0;
-		uint32_t d, f;
-		int32_t a, b;
-		int idx;
-		if (re < 0) {
-			re = -re;
-			neg = !neg;
-			ang += -Q15_PI_4 * 4;
-		}
-		if (im < 0) {
-			im = -im;
-			neg = !neg;
-		}
-		if (im >= re) {
-			int32_t x = im;
-			im = re;
-			re = x;
-			neg = !neg;
-			ang = -ang - Q15_PI_4 * 2;
-		}
-		d = im << 0;
-		d /= re >> 16;
-		idx = (d >> 8) & 0xff;
-		f = d & 0xff;
-		a = arctantbl[idx];
-		b = arctantbl[idx+1];
-		ang += a + (((b - a) * f) >> 8);
-		if (neg)
-			ang = -ang;
-		v = __SSAT(ang/64, 16);
+        v = atan_2iq(x0, x1);
         *dst32++ = __PKHBT(v, v, 16);
 		x0 = x1;
 	}
 	fm_demod_state.last = x0;
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
+}
+
+// state variables for stereo separation
+stereo_separate_state_t stereo_separate_state;
+
+#define IF_RATE 192.0
+#define PHASESTEP_NCO19KHz 	((19.0*65536.0*65536.0)/IF_RATE)
+
+void
+stereo_separate_init(void)
+{
+	stereo_separate_state.phase_accum = 0;
+	stereo_separate_state.phase_step_default = PHASESTEP_NCO19KHz;
+	stereo_separate_state.phase_step = stereo_separate_state.phase_step_default;
+
+	stereo_separate_state.corr = 0;
+	stereo_separate_state.integrator = 0;
+	stereo_separate_state.sdi = 0;
+	stereo_separate_state.sdq = 0;
+}
+
+
+// src: baseband signal (real)
+// dest: 38kHz shifted subchannel (real)
+void
+stereo_separate(int16_t *src, int16_t *dest, int32_t length)
+{
+	int i;
+	int32_t di = 0;
+	int32_t dq = 0;
+	uint32_t phase_accum = stereo_separate_state.phase_accum;
+	uint32_t phase_step = stereo_separate_state.phase_step;
+
+	int32_t corr = 0;
+
+    // PLL 19kHz, 38kHz frequency shift
+	for (i = 0; i < length; i++) {
+		uint32_t cs = cos_sin(phase_accum >> 16);
+		int16_t s = cs & 0xffff;
+		int16_t c = cs >> 16;
+
+        // sin(2t) = 2sin(t)cos(t)
+		int16_t ss = (int32_t)(c * s) >> (16 - 2);
+
+        // frequency shift
+		int32_t x = src[i];
+		dest[i] = (ss * x) >> (16 - 1);
+        //src[i] = src[i] / 2;
+        
+        // correlate 19kHz pilot carrier
+		di += (c * x) >> 16;
+		dq += (s * x) >> 16;
+		phase_accum += phase_step;
+	}
+    stereo_separate_state.phase_accum = phase_accum;
+
+	// averaging correlation
+	di = (stereo_separate_state.sdi * 15 + di) / 16;
+	dq = (stereo_separate_state.sdq * 15 + dq) / 16;
+	stereo_separate_state.sdi = di;
+	stereo_separate_state.sdq = dq;
+	if (di > 0) {
+		corr = 1024 * dq / di;
+		//corr += stereo_separate_state.corr;
+		if (corr > 4095)
+			corr = 4095;
+		else if (corr < -4095)
+			corr = -4095;
+	} else {
+		if (dq > 0)
+			corr = 4095;
+		else if (dq < 0)
+			corr = -4095;
+        //phase_step = stereo_separate_state.phase_step_default;
+	}
+    
+	if (corr != 0) {
+        // for monitoring
+		stereo_separate_state.corr = corr;
+		stereo_separate_state.corr_ave = (stereo_separate_state.corr_ave * 15 + corr) / 16;
+
+		int32_t d = stereo_separate_state.corr_ave - corr;
+		int32_t sd = (stereo_separate_state.corr_std * 15 + d * d) / 16;
+		if (sd > 32767)
+			sd = 32767;
+		stereo_separate_state.corr_std = sd;
+
+        // feedback phase step
+        phase_step = stereo_separate_state.phase_step_default
+          - stereo_separate_state.integrator - corr * 128;
+        //phase_step += -stereo_separate_state.corr_ave;
+		stereo_separate_state.phase_step = phase_step;
+        if (stereo_separate_state.corr_std < 100)
+          stereo_separate_state.integrator += stereo_separate_state.corr_ave;
+	}
+}
+
+void
+stereo_matrix(int16_t *s1, int16_t *s2, int len)
+{
+	int i;
+	for (i = 0; i < len; i++) {
+		uint32_t x1 = *s1;
+		uint32_t x2 = *s2;
+		uint32_t l = __QADD16(x1, x2);
+		uint32_t r = __QSUB16(x1, x2);
+		*s1++ = l;
+		*s2++ = r;
+	}
+}
+
+void
+stereo_matrix2(int16_t *s1, int16_t *s2, int16_t *dst, int len)
+{
+	int i;
+	for (i = 0; i < len; i++) {
+		uint32_t x1 = *s1++;
+		uint32_t x2 = *s2++;
+		uint32_t l = __QADD16(x1, x2);
+		uint32_t r = __QSUB16(x1, x2);
+		*dst++ = l;
+		*dst++ = r;
+	}
+}
+
+void
+stereo_matrix3(int16_t *s1, int16_t *s2, int16_t *dst, int len)
+{
+	int i;
+	for (i = 0; i < len; i += 4) {
+        int32_t x1 = *s1++ / 4;
+        int32_t x2 = *s2++ / 4;
+		int32_t l = __QADD16(x1, x2);
+		int32_t r = __QSUB16(x1, x2);
+        x1 = *s1++ / 4;
+        x2 = *s2++ / 4;
+		int32_t l0 = __QADD16(x1, x2);
+		int32_t r0 = __QSUB16(x1, x2);
+        l = __QADD16(l, l0);
+        r = __QADD16(r, r0);
+        x1 = *s1++ / 4;
+        x2 = *s2++ / 4;
+        l0 = __QADD16(x1, x2);
+        r0 = __QSUB16(x1, x2);
+        l = __QADD16(l, l0);
+        r = __QADD16(r, r0);
+        x1 = *s1++ / 4;
+        x2 = *s2++ / 4;
+        l0 = __QADD16(x1, x2);
+        r0 = __QSUB16(x1, x2);
+        l = __QADD16(l, l0);
+        r = __QADD16(r, r0);
+		*dst++ = l;
+		*dst++ = r;
+		*dst++ = l;
+		*dst++ = r;
+		*dst++ = l;
+		*dst++ = r;
+		*dst++ = l;
+		*dst++ = r;
+	}
+}
+
+static inline void
+fm_adj_filter(int16_t *src, size_t len)
+{
+    int32_t *s = __SIMD32(src);
+	unsigned int i;
+
+    uint32_t x1 = fm_demod_state.pre1;
+    uint32_t x2 = fm_demod_state.pre2;
+    uint32_t zero = 0;
+    uint32_t k12 = 0x5ae1eccd;
+    //uint32_t k12 = 0x51ecea3d;
+    
+	for (i = 0; i < len; i += 2) {
+        int32_t x0 = *s;
+        int32_t acc_i = 0;
+        uint32_t i12 = __PKHBT(x2, x1, 16);
+        uint32_t i0_ = __PKHBT(zero, x0, 16);
+        acc_i = __SMLAD(k12, i12, acc_i);
+        acc_i = __SMLADX(k12, i0_, acc_i);
+
+        int32_t acc_q = 0;
+        uint32_t q12 = __PKHTB(x1, x2, 16);
+        uint32_t q0_ = __PKHTB(x0, zero, 16);
+        acc_q = __SMLAD(k12, q12, acc_q);
+        acc_q = __SMLADX(k12, q0_, acc_q);
+#if 1
+        acc_i = __SSAT(acc_i / 8192, 16);
+        acc_q = __SSAT(acc_q / 8192, 16);
+        *s++ = __PKHBT(acc_i, acc_q, 16);
+#else
+        *s++ = __PKHTB(acc_q, acc_i, 16);
+#endif
+        
+        x2 = x1;
+        x1 = x0;
+    }
+    fm_demod_state.pre1 = x1;
+    fm_demod_state.pre2 = x2;
+}
+
+void
+fm_demod0(int16_t *src, int16_t *dst, size_t len)
+{
+    int32_t *s = __SIMD32(src);
+	uint32_t x0 = fm_demod_state.last;
+	unsigned int i;
+
+	for (i = 0; i < len; i += 2) {
+        uint32_t x1 = *s++;
+        *dst++ = atan_2iq(x0, x1);
+		x0 = x1;
+	}
+	fm_demod_state.last = x0;
+}
+
+void
+fm_demod_stereo(int16_t *src, int16_t *dst, size_t len)
+{
+  // apply frequency response adjustment
+  fm_adj_filter(src, len);
+   
+  disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+  fm_demod0(src, buffer[0], len);
+  disp_fetch_samples(B_IF1, BT_REAL, buffer[0], NULL, len/2);
+  stereo_separate(buffer[0], buffer2[0], len/2);
+  disp_fetch_samples(B_IF2, BT_REAL, buffer2[0], NULL, len/2);
+  stereo_matrix2(buffer[0], buffer2[0], dst, len/2);
+  //stereo_matrix3(buffer[0], buffer2[0], dst, len/2);
+  disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
+}
+
+#if 0
+
+void
+fir_filter_stereo()
+{
+	const uint32_t *coeff;
+	const uint16_t *src1 = (const uint16_t *)RESAMPLE_STATE;
+	const uint16_t *src2 = (const uint16_t *)RESAMPLE2_STATE;
+	const uint32_t *s1, *s2;
+	int32_t tail = RESAMPLE_BUFFER_SIZE;
+	int32_t idx = resample_state.index;
+	int32_t acc1, acc2;
+	int i, j;
+	int cur = audio_state.write_current;
+	uint16_t *dest = (uint16_t *)AUDIO_BUFFER;
+	float val1 = resample_state.deemphasis_value;
+	float val2 = resample_state.deemphasis_value2;
+
+	while (idx < tail) {
+		coeff = (uint32_t*)resample_fir_coeff[idx % 2];
+		acc1 = 0;
+		acc2 = 0;
+		s1 = (const uint32_t*)&src1[idx >> 1];
+		s2 = (const uint32_t*)&src2[idx >> 1];
+		for (j = 0; j < RESAMPLE_NUM_TAPS / 2; j++) {
+			uint32_t x1 = *s1++;
+			uint32_t x2 = *s2++;
+			//uint32_t l = __SADD16(x1, x2);
+			//uint32_t r = __SSUB16(x1, x2);
+			acc1 = __SMLAD(x1, *coeff, acc1);
+			acc2 = __SMLAD(x2, *coeff, acc2);
+			coeff++;
+		}
+
+		// deemphasis with time constant
+		val1 = (float)acc1 * resample_state.deemphasis_rest + val1 * resample_state.deemphasis_mult;
+		val2 = (float)acc2 * resample_state.deemphasis_rest + val2 * resample_state.deemphasis_mult;
+		int32_t left = val1 + val2;
+		int32_t right = val1 - val2;
+		dest[cur++] = left >> (16 - RESAMPLE_GAINBITS);
+		dest[cur++] = right >> (16 - RESAMPLE_GAINBITS);
+		//dest[cur++] = __SSAT((int32_t)(val1-val2) >> (16 - RESAMPLE_GAINBITS), 16);
+		//dest[cur++] = __SSAT((int32_t)(val1) >> (16 - RESAMPLE_GAINBITS), 16);
+		//dest[cur++] = __SSAT((int32_t)(val1) >> (16 - RESAMPLE_GAINBITS), 16);
+		//dest[cur++] = 0;
+		cur %= AUDIO_BUFFER_SIZE / 2;
+		audio_state.write_total += 2;
+		idx += 13; /* 2/13 decimation: 2 samples per loop */
+	}
+
+	resample_state.deemphasis_value = val1;
+	resample_state.deemphasis_value2 = val2;
+	audio_state.write_current = cur;
+	resample_state.index = idx - tail;
+	uint32_t *state = (uint32_t *)RESAMPLE_STATE;
+	src1 = &src1[tail / sizeof(*src1)];
+	for (i = 0; i < RESAMPLE_STATE_SIZE / sizeof(uint32_t); i++) {
+		//*state++ = *src1++;
+	    __asm__ volatile ("ldr r0, [%0], #+4\n" : : "r" (src1) : "r0");
+	    __asm__ volatile ("str r0, [%0], #+4\n" : : "r" (state) : "r0");
+	}
+	state = (uint32_t *)RESAMPLE2_STATE;
+	src2 = &src2[tail / sizeof(*src2)];
+	for (i = 0; i < RESAMPLE_STATE_SIZE / sizeof(uint32_t); i++) {
+		//*state++ = *src2++;
+	    __asm__ volatile ("ldr r0, [%0], #+4\n" : : "r" (src2) : "r0");
+	    __asm__ volatile ("str r0, [%0], #+4\n" : : "r" (state) : "r0");
+	}
+}
+
+#endif
+
+void
+dsp_init(void)
+{
+  stereo_separate_init();
 }

@@ -24,6 +24,8 @@
 
 extern int16_t measured_power_dbm;
 
+void set_agc_mode(int agcmode);
+
 /*
  * tlv320aic3204.c
  */
@@ -64,9 +66,20 @@ extern void tlv320aic3204_set_adc_phase_adjust(int8_t adjust);
 
 extern int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 extern int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
-
 extern int16_t buffer[2][AUDIO_BUFFER_LEN];
 extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
+
+typedef enum { B_CAPTURE, B_IF1, B_IF2, B_PLAYBACK, BUFFERS_MAX } buffer_t;
+
+typedef struct {
+  enum { BT_C_INTERLEAVE, BT_IQ, BT_R_INTERLEAVE, BT_REAL } type;
+  int16_t length;
+  int16_t *buf0;
+  int16_t *buf1;
+} buffer_ref_t;
+
+extern const buffer_ref_t buffers_table[BUFFERS_MAX];
+
 
 typedef void (*signal_process_func_t)(int16_t *src, int16_t *dst, size_t len);
 
@@ -76,8 +89,9 @@ void am_demod(int16_t *src, int16_t *dst, size_t len);
 void lsb_demod(int16_t *src, int16_t *dst, size_t len);
 void usb_demod(int16_t *src, int16_t *dst, size_t len);
 void fm_demod(int16_t *src, int16_t *dst, size_t len);
+void fm_demod_stereo(int16_t *src, int16_t *dst, size_t len);
 
-void set_agc_mode(int agcmode);
+void dsp_init(void);
 
 #define AM_FREQ_OFFSET 10000
 #define SSB_FREQ_OFFSET 1300
@@ -95,6 +109,28 @@ typedef struct {
   int16_t offset;
 } dcrejection_t;
 
+
+// state variables for stereo separation
+
+typedef struct {
+	uint32_t phase_step_default;
+	uint32_t phase_step;
+	uint32_t phase_accum;
+
+    // average of correlation vector angle
+    int32_t sdi; 
+	int32_t sdq;
+
+    int32_t corr;
+	int32_t corr_ave;
+	int32_t corr_std;
+    int16_t integrator;
+  
+} stereo_separate_state_t;
+
+extern stereo_separate_state_t stereo_separate_state;
+
+
 /*
  * font: Font5x7.c numfont32x24.c numfont20x24.c icons.c
  */
@@ -109,6 +145,8 @@ extern const uint32_t icons48x20[][20*2];
 #define S_OHM   "\036"
 #define S_DEGREE "\037"
 #define S_RARROW "\033"
+
+#define ICON_AGC_OFF 5
 
 
 /*
@@ -150,7 +188,7 @@ void ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, 
 
 void disp_init(void);
 void disp_process(void);
-void disp_fetch_samples(void);
+void disp_fetch_samples(int bufid, int type, int16_t *buf0, int16_t *buf1, size_t len);
 void disp_update(void);
 void disp_update_power(void);
 
@@ -169,6 +207,7 @@ typedef enum {
 	MOD_USB,
 	MOD_AM,
 	MOD_FM,
+	MOD_FM_STEREO,
 	MOD_MAX
 } modulation_t;
 
@@ -185,14 +224,14 @@ typedef struct {
 
     uint32_t freq;
 	modulation_t modulation;
-	int8_t rfgain;
+	int16_t rfgain;
     uint8_t fs; /* 48, 96, 192 */
 
-	enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST } agcmode;
+    enum { AGC_MANUAL, AGC_SLOW, AGC_MID, AGC_FAST, AGC_MAX } agcmode;
 	int8_t digit; /* 0~5 */
     int freq_offset;
     enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
-    enum { WATERFALL, WAVEFORM, WFDISP_MODE_MAX } wfdispmode;
+    enum { WATERFALL, WAVEFORM, WAVEFORM_MAG, WFDISP_MODE_MAX } wfdispmode;
 } uistat_t;
 
 extern uistat_t uistat;
@@ -206,7 +245,6 @@ extern uistat_t uistat;
 typedef struct {
   uint32_t freq;
   modulation_t modulation;
-  uint8_t fs;
 } channel_t;
 
 typedef struct {

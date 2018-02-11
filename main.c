@@ -109,10 +109,16 @@ static void cmd_tune(BaseSequentialStream *chp, int argc, char *argv[])
 }
 
 
-
-
 int16_t rx_buffer[AUDIO_BUFFER_LEN * 2];
 int16_t tx_buffer[AUDIO_BUFFER_LEN * 2];
+
+const buffer_ref_t buffers_table[BUFFERS_MAX] = {
+  { BT_C_INTERLEAVE, AUDIO_BUFFER_LEN, rx_buffer,  NULL },
+  { BT_IQ,           AUDIO_BUFFER_LEN, buffer[0],  buffer[1] },
+  { BT_IQ,           AUDIO_BUFFER_LEN, buffer2[0], buffer2[1] },
+  { BT_R_INTERLEAVE, AUDIO_BUFFER_LEN, tx_buffer,  NULL }
+};
+
 
 signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;
@@ -128,45 +134,46 @@ config_t config = {
   },
   .channels = {
     /*    freq, modulation */
-    {   567000, MOD_AM, 48 },
-    {   747000, MOD_AM, 48 },
-    {  1287000, MOD_AM, 48 },
-    {  1440000, MOD_AM, 48 },
-    {  7100000, MOD_LSB, 48 },
-    { 14100000, MOD_USB, 48 },
-    { 21100000, MOD_USB, 48 },
-    { 26800050, MOD_FM, 192 },
-    { 27500050, MOD_FM, 192 },
-    { 28400050, MOD_FM, 192 },
-    {  2932000, MOD_USB, 48 },
-    {  5628000, MOD_USB, 48 },
-    {  6655000, MOD_USB, 48 },
-    {  8951000, MOD_USB, 48 },
-    { 10048000, MOD_USB, 48 },
-    { 11330000, MOD_USB, 48 },
-    { 13273000, MOD_USB, 48 },
-    { 17904000, MOD_USB, 48 }
+    {   567000, MOD_AM },
+    {   747000, MOD_AM },
+    {  1287000, MOD_AM },
+    {  1440000, MOD_AM },
+    {  7100000, MOD_LSB },
+    { 14100000, MOD_USB },
+    { 21100000, MOD_USB },
+    { 26800050, MOD_FM },
+    { 27500050, MOD_FM },
+    { 28400050, MOD_FM },
+    {  2932000, MOD_USB },
+    {  5628000, MOD_USB },
+    {  6655000, MOD_USB },
+    {  8951000, MOD_USB },
+    { 10048000, MOD_USB },
+    { 11330000, MOD_USB },
+    { 13273000, MOD_USB },
+    { 17904000, MOD_USB }
   }
 };
 
-static signal_process_func_t demod_funcs[] = {
-  lsb_demod,
-  usb_demod,
-  am_demod,
-  fm_demod,
-};
-
-static const int16_t demod_freq_offset[] = {
-  0,
-  0,
-  AM_FREQ_OFFSET,
-  0,
+struct {
+  signal_process_func_t demod_func;
+  int16_t freq_offset;
+  int16_t fs;
+} mod_table[] = {
+  { lsb_demod,             0,  48 },
+  { usb_demod,             0,  48 },
+  { am_demod, AM_FREQ_OFFSET,  48 },
+  { fm_demod,              0, 192 },
+  { fm_demod_stereo,       0, 192 },
 };
 
 void set_modulation(modulation_t mod)
 {
-  signal_process = demod_funcs[mod];
-  mode_freq_offset = demod_freq_offset[mod];
+  if (mod >= MOD_MAX)
+    return;
+  set_fs(mod_table[mod].fs);
+  signal_process = mod_table[mod].demod_func;
+  mode_freq_offset = mod_table[mod].freq_offset;
 }
 
 void
@@ -347,6 +354,10 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   int gain0 = tlv320aic3204_get_left_agc_gain();
   int gain1 = tlv320aic3204_get_right_agc_gain();
   chprintf(chp, "agc gain: %d %d\r\n", gain0, gain1);
+
+  chprintf(chp, "fm stereo: %d %d\r\n", stereo_separate_state.sdi, stereo_separate_state.sdq);
+  chprintf(chp, "  corr: %d %d %d\r\n", stereo_separate_state.corr, stereo_separate_state.corr_ave, stereo_separate_state.corr_std);
+  chprintf(chp, "  int: %d\r\n", stereo_separate_state.integrator);
   
 #if 0
   p = &tx_buffer[0];
@@ -385,13 +396,22 @@ static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
-    if (argc != 1) {
-        chprintf(chp, "usage: gain {gain(0-95)}\r\n");
+    if (argc != 1 && argc != 2) {
+        chprintf(chp, "usage: gain {pga gain(0-95)} {digital gain(-24-40)}\r\n");
         return;
     }
 
     gain = atoi(argv[0]);
     tlv320aic3204_set_gain(gain);
+    uistat.rfgain = gain;
+    
+    if (argc == 2) {
+      gain = atoi(argv[1]);
+      tlv320aic3204_set_digital_gain(gain);
+      uistat.rfgain += gain;
+    }
+
+    disp_update();
 }
 
 static void cmd_phase(BaseSequentialStream *chp, int argc, char *argv[])
@@ -447,6 +467,7 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
     const char *cmd;
     if (argc == 0) {
       chprintf(chp, "usage: agc {cmd} [args...]\r\n");
+      chprintf(chp, "\tmanual/slow/mid/fast\r\n");
       chprintf(chp, "\tenable/disable\r\n");
       chprintf(chp, "\tlevel {0-7}\r\n");
       chprintf(chp, "\thysteresis {0-3}\r\n");
@@ -457,9 +478,17 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
     }
 
     cmd = argv[0];
-    if (strncmp(cmd, "di", 2) == 0) {
+    if (strncmp(cmd, "manual", 3) == 0) {
+      set_agc_mode(AGC_MANUAL);
+    } else if (strncmp(cmd, "slow", 2) == 0) {
+      set_agc_mode(AGC_SLOW);
+    } else if (strncmp(cmd, "mid", 2) == 0) {
+      set_agc_mode(AGC_MID);
+    } else if (strncmp(cmd, "fast", 2) == 0) {
+      set_agc_mode(AGC_FAST);
+    } else if (strncmp(cmd, "di", 2) == 0) {
       tlv320aic3204_agc_config(NULL);
-    } else if (strncmp(cmd, "en", 2) == 0) {
+    } else if (strncmp(cmd, "enable", 2) == 0) {
       tlv320aic3204_agc_config(&config.agc);
     } else if (strncmp(cmd, "le", 2) == 0 && argc == 2) {
       config.agc.target_level = atoi(argv[1]);
@@ -477,7 +506,7 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
       if (argc >= 3)
         config.agc.decay_scale = atoi(argv[2]);
       tlv320aic3204_agc_config(&config.agc);
-    } else if (strncmp(cmd, "ma", 2) == 0 && argc >= 2) {
+    } else if (strncmp(cmd, "max", 3) == 0 && argc >= 2) {
       config.agc.maximum_gain = atoi(argv[1]);
       tlv320aic3204_agc_config(&config.agc);
     }
@@ -485,10 +514,13 @@ static void cmd_agc(BaseSequentialStream *chp, int argc, char *argv[])
 
 void set_agc_mode(int mode)
 {
-  switch (mode) {
-  case AGC_MANUAL:
+  if (mode == AGC_MANUAL) {
     tlv320aic3204_agc_config(NULL);
+    uistat.agcmode = mode;
+    disp_update();
     return;
+  }
+  switch (mode) {
   case AGC_FAST:
     config.agc.decay = 0;
     config.agc.decay_scale = 0;
@@ -503,13 +535,15 @@ void set_agc_mode(int mode)
     break;
   }
   tlv320aic3204_agc_config(&config.agc);
+  uistat.agcmode = mode;
+  disp_update();
 }
 
 static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
 {
     const char *cmd;
     if (argc == 0) {
-      chprintf(chp, "usage: mode {am|lsb|usb}\r\n");
+      chprintf(chp, "usage: mode {lsb|usb|am|fm|fms}\r\n");
       return;
     }
 
@@ -522,6 +556,9 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
       disp_update();
     } else if (strncmp(cmd, "usb", 1) == 0) {
       set_modulation(MOD_USB);
+      disp_update();
+    } else if (strncmp(cmd, "fms", 3) == 0) {
+      set_modulation(MOD_FM_STEREO);
       disp_update();
     } else if (strncmp(cmd, "fm", 1) == 0) {
       set_modulation(MOD_FM);
@@ -597,7 +634,6 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
       }
       config.channels[channel].freq = uistat.freq;
       config.channels[channel].modulation = uistat.modulation;
-      config.channels[channel].fs = uistat.fs;
     } else {
       channel = atoi(argv[0]);
       if (channel < 0 || channel >= CHANNEL_MAX) {
@@ -769,13 +805,8 @@ int __attribute__((noreturn)) main(void)
   i2sStartExchange(&I2SD2);
 #endif
   
-  //tone_generate(440);
-
-  //si5351_set_frequency(48001);
-  //si5351_set_frequency(567*4); // NHK1
-  //set_tune(567000); // NHK1
-  //set_tune(35000000);
-
+  dsp_init();
+  
   /*
    * SPI LCD Initialize
    */

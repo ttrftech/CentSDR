@@ -105,12 +105,6 @@ int btn_check(void)
 #define VOLUME_MIN -7
 #define RFGAIN_MAX 95
 
-#define AGCMODE_MAX 4
-int16_t agc_slowness_table[AGCMODE_MAX] = {
-		-1, 10, 5, 1
-};
-
-
 static void
 set_gain(int gain)
 {
@@ -159,9 +153,9 @@ void ext_callback(EXTDriver *extp, expchannel_t channel)
     int s = (channel - 1) * 2; // A: 0, B: 2
     if (cur & (1 << channel))
       s |= 1; // rising
-    if (enc_status == 0 && s == 3)
+    if (enc_status == 0 && s == 3) // rising B
       enc_count--;
-    if (enc_status == 3 && s == 2)
+    if (enc_status == 3 && s == 2) // falling B
       enc_count++;
     enc_status = trans_tbl[s][enc_status];
 #if 0
@@ -215,10 +209,8 @@ recall_channel(unsigned int channel)
   uistat.freq = config.channels[channel].freq;
   //uistat.rfgain = config.channels[channel].rfgain;
   uistat.modulation = config.channels[channel].modulation;
-  uistat.fs = config.channels[channel].fs;
   
   //set_gain(uistat.rfgain);
-  set_fs(uistat.fs);
   set_modulation(uistat.modulation);
   update_frequency();
 }
@@ -236,7 +228,7 @@ ui_init(void)
 	uistat.freq = 567000;
 	uistat.digit = 3;
 	uistat.modulation = MOD_AM;
-	uistat.volume = 10;
+	uistat.volume = 0;
 	uistat.rfgain = 40; // 0 ~ 95
 	//uistat.agcmode = AGC_MANUAL;
     uistat.agcmode = AGC_MID;
@@ -309,7 +301,7 @@ ui_process(void)
           uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
           recall_channel(uistat.channel);
         } else if (uistat.mode == VOLUME) {
-          uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX);
+          uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX+1);
           set_volume(uistat.volume);
         } else if (uistat.mode == FREQ) {
           int32_t step = 1;
@@ -320,10 +312,10 @@ ui_process(void)
             uistat.freq = freq;
           update_frequency();
         } else if (uistat.mode == RFGAIN) {
-          uistat.rfgain = minmax(uistat.rfgain + tick, -24, RFGAIN_MAX + 40);
+          uistat.rfgain = minmax((int)uistat.rfgain + tick, -24, RFGAIN_MAX + 40+1);
           set_gain(uistat.rfgain);
         } else if (uistat.mode == AGC) {
-          uistat.agcmode = minmax(uistat.agcmode + tick, 0, 4);
+          uistat.agcmode = minmax(uistat.agcmode + tick, 0, AGC_MAX);
           set_agc_mode(uistat.agcmode);
         } else if (uistat.mode == MOD) {
           if (tick > 0 && uistat.modulation < MOD_MAX-1) {
