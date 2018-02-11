@@ -174,6 +174,8 @@ void set_modulation(modulation_t mod)
   set_fs(mod_table[mod].fs);
   signal_process = mod_table[mod].demod_func;
   mode_freq_offset = mod_table[mod].freq_offset;
+  uistat.modulation = mod;
+  disp_update();
 }
 
 void
@@ -436,6 +438,8 @@ static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
 
     gain = atoi(argv[0]);
     tlv320aic3204_set_volume(gain);
+    uistat.volume = gain;
+    disp_update();
 }
 
 static void cmd_dcreject(BaseSequentialStream *chp, int argc, char *argv[])
@@ -550,19 +554,14 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
     cmd = argv[0];
     if (strncmp(cmd, "am", 1) == 0) {
       set_modulation(MOD_AM);
-      disp_update();
     } else if (strncmp(cmd, "lsb", 1) == 0) {
       set_modulation(MOD_LSB);
-      disp_update();
     } else if (strncmp(cmd, "usb", 1) == 0) {
       set_modulation(MOD_USB);
-      disp_update();
     } else if (strncmp(cmd, "fms", 3) == 0) {
       set_modulation(MOD_FM_STEREO);
-      disp_update();
     } else if (strncmp(cmd, "fm", 1) == 0) {
       set_modulation(MOD_FM);
-      disp_update();
     }
 }
 
