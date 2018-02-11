@@ -1251,7 +1251,7 @@ draw_info(void)
 	x += 48+4;
 
 	bg = uistat.mode == AGC ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(uistat.agcmode + 4, &ICON48x20, x+2, y+2, 0xffff, bg);
+	ili9341_drawfont(uistat.agcmode + ICON_AGC_OFF, &ICON48x20, x+2, y+2, 0xffff, bg);
 	x += 48+4;
 
     bg = uistat.mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;

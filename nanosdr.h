@@ -146,6 +146,8 @@ extern const uint32_t icons48x20[][20*2];
 #define S_DEGREE "\037"
 #define S_RARROW "\033"
 
+#define ICON_AGC_OFF 5
+
 
 /*
  * ili9341.c
