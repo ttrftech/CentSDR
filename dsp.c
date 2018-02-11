@@ -666,8 +666,8 @@ stereo_matrix2(int16_t *s1, int16_t *s2, int16_t *dst, int len)
 {
 	int i;
 	for (i = 0; i < len; i++) {
-		uint32_t x1 = *s1++ / 2;
-		uint32_t x2 = *s2++ / 2;
+		uint32_t x1 = *s1++;
+		uint32_t x2 = *s2++;
 		uint32_t l = __QADD16(x1, x2);
 		uint32_t r = __QSUB16(x1, x2);
 		*dst++ = l;
