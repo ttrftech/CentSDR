@@ -153,9 +153,9 @@ void ext_callback(EXTDriver *extp, expchannel_t channel)
     int s = (channel - 1) * 2; // A: 0, B: 2
     if (cur & (1 << channel))
       s |= 1; // rising
-    if (enc_status == 0 && s == 3)
+    if (enc_status == 0 && s == 3) // rising B
       enc_count--;
-    if (enc_status == 3 && s == 2)
+    if (enc_status == 3 && s == 2) // falling B
       enc_count++;
     enc_status = trans_tbl[s][enc_status];
 #if 0

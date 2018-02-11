@@ -614,9 +614,15 @@ __attribute__( ( always_inline ) ) __STATIC_INLINE uint32_t __SMULBT(uint32_t op
 
 // copy samples from 16bit into 32bit with applying window function
 inline static void
-window_complex_15to31(q31_t *dest, q15_t *s1, q15_t *s2, size_t length, const q15_t *wf)
+window_complex_15to31(q15_t *s1, q15_t *s2, size_t length)
 {
-	length /= 4;
+    q31_t *dest = spdisp_fetch_current;
+    const q15_t *wf = spdisp_wf_current;
+    spdisp_fetch_current += length * 2;
+	spdisp_fetch_rest -= length * 2;
+    spdisp_wf_current += length;
+
+	length /= 2;
 	while (length-- > 0) {
 		uint32_t w = *__SIMD32(wf)++;
 		uint32_t i1i2 = *__SIMD32(s1)++;
@@ -628,10 +634,36 @@ window_complex_15to31(q31_t *dest, q15_t *s1, q15_t *s2, size_t length, const q1
 	}
 }
 
+inline static void
+window_real_15to31(q15_t *s1, size_t length)
+{
+    q31_t *dest = spdisp_fetch_current;
+    const q15_t *wf = spdisp_wf_current;
+    spdisp_fetch_current += length * 2;
+	spdisp_fetch_rest -= length * 2;
+    spdisp_wf_current += length;
+
+	length /= 2;
+	while (length-- > 0) {
+		uint32_t w = *__SIMD32(wf)++;
+		uint32_t i1i2 = *__SIMD32(s1)++;
+		*dest++ = __SMULBB(i1i2, w);
+		*dest++ = 0;
+		*dest++ = __SMULTT(i1i2, w);
+		*dest++ = 0;
+	}
+}
+
 // copy samples from 16bit into 32bit with applying window function
 inline static void
-window_complex_interleaved_15to31(q31_t *dest, q15_t *src, size_t length, const q15_t *wf)
+window_complex_interleaved_15to31(q15_t *src, size_t length)
 {
+    q31_t *dest = spdisp_fetch_current;
+    const q15_t *wf = spdisp_wf_current;
+    spdisp_fetch_current += length;
+	spdisp_fetch_rest -= length;
+    spdisp_wf_current += length / 2;
+
 	length /= 4;
 	while (length-- > 0) {
 		uint32_t w = *__SIMD32(wf)++;
@@ -645,60 +677,77 @@ window_complex_interleaved_15to31(q31_t *dest, q15_t *src, size_t length, const 
 }
 
 inline static void
-window_real_15to31(q31_t *dest, q15_t *s1, size_t length, const q15_t *wf)
+window_real_interleaved_15to31(q15_t *src, size_t length)
 {
   //uint32_t offset = 0x08000800;
   //uint32_t mask = 0xFFF0FFF0;
   //uint16_t adj = spdisp_source[uistat.spdispmode].ibuf == CAPTUREBUFFER0;
-	length /= 4;
+    q31_t *dest = spdisp_fetch_current;
+    const q15_t *wf = spdisp_wf_current;
+    spdisp_fetch_current += length;
+	spdisp_fetch_rest -= length;
+    spdisp_wf_current += length / 2;
+
+    length /= 4;
 	while (length-- > 0) {
 		uint32_t w = *__SIMD32(wf)++;
-		uint32_t i1i2 = *__SIMD32(s1)++;
+		uint32_t i1q1 = *__SIMD32(src)++;
+		uint32_t i2q2 = *__SIMD32(src)++;
 		//if (adj)
         //i1i2 = (__QSUB16(i1i2, offset) << 4) & mask;
-		*dest++ = __SMULBB(i1i2, w);
+		*dest++ = __SMULBB(i1q1, w);
 		*dest++ = 0;
-		*dest++ = __SMULTT(i1i2, w);
+		*dest++ = __SMULBT(i2q2, w);
 		*dest++ = 0;
 	}
 }
 
 // called from dsp.c
 void
-disp_fetch_samples(void)
+disp_fetch_samples(int mode, int type, int16_t *buf0, int16_t *buf1, size_t buflen)
 {
+    if (mode != uistat.spdispmode)
+        return;
+
 	if (spdisp_fetch_rest == 0) {
 		if (spdispinfo.update_flag & FLAG_SPDISP) {
 			// currently proccessing in M0APP
 			return;
 		}
+        // start to fetch data
 		spdisp_fetch_current = SPDISP_BUFFER;
 		spdisp_fetch_rest = SPDISP_BUFFER_LENGTH;
 		spdisp_wf_current = winfunc_table;
 	}
 
-	int16_t length = spdisp_fetch_rest;
-	uint16_t mode = uistat.spdispmode;
-	if (length > buffers_table[mode].length)
-		length = buffers_table[mode].length;
+	size_t length = spdisp_fetch_rest;
+    if (type == BT_C_INTERLEAVE || type == BT_R_INTERLEAVE) {
+      if (buflen > length)
+        buflen = length;
+      length = buflen;
+    } else {
+      if (buflen > length / 2)
+        buflen = length / 2;
+      length = buflen * 2;
+    }
 
-	switch (buffers_table[mode].type) {
-    case BT_REAL:
-    case BT_SEPARATE:
-		window_real_15to31(spdisp_fetch_current, buffers_table[mode].buf0, length, spdisp_wf_current);
-        break;
-    case BT_INTERLEAVE:
-		window_complex_interleaved_15to31(spdisp_fetch_current, buffers_table[mode].buf0, length, spdisp_wf_current);
-        break;
+	switch (type) {
+    case BT_C_INTERLEAVE:
+      window_complex_interleaved_15to31(buf0, buflen);
+      break;
     case BT_IQ:
-		window_complex_15to31(spdisp_fetch_current, buffers_table[mode].buf0, buffers_table[mode].buf1, length, spdisp_wf_current);
-        break;
+      window_complex_15to31(buf0, buf1, buflen);
+      break;
+    case BT_REAL:
+      window_real_15to31(buf0, buflen);
+      break;
+    case BT_R_INTERLEAVE:
+      window_real_interleaved_15to31(buf0, buflen);
+      break;
 	}
-	spdisp_fetch_current += length;
-	spdisp_fetch_rest -= length;
-	spdisp_wf_current += length/2;
 
 	if (spdisp_fetch_rest == 0) {
+        // filled up buffer, then analyze and draw waveform
 		spdispinfo.buffer = SPDISP_BUFFER;
 		spdispinfo.update_flag |= FLAG_SPDISP;
 	}

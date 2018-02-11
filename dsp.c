@@ -328,6 +328,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     int32_t *d = __SIMD32(dst);
     uint32_t i;
 
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+
     // shift frequency
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco1_phase);
@@ -336,11 +338,13 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
-    disp_fetch_samples();
+    disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
 
     // apply low pass filter
 	arm_biquad_cascade_df1_q15(&bq_i, buffer[0], buffer2[0], len/2);
 	arm_biquad_cascade_df1_q15(&bq_q, buffer[1], buffer2[1], len/2);
+
+    disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
 
     // shift frequency inverse
 	bufi = buffer2[0];
@@ -352,6 +356,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
         *d++ = __PKHBT(r, r, 16);
 	}
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
 
 __attribute__ ( ( always_inline ) ) __STATIC_INLINE
@@ -374,6 +380,9 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
     int32_t *s = __SIMD32(src);
     int32_t *d = __SIMD32(dst);
     uint32_t i;
+
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+
     for (i = 0; i < len/2; i++) {
         uint32_t cossin = cos_sin(nco1_phase);
         nco1_phase -= PHASESTEP;
@@ -381,12 +390,14 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
 	}
-    disp_fetch_samples();
+    disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
 
     // apply low pass filter
 	arm_biquad_cascade_df1_q15(&bq_am_i, buffer[0], buffer2[0], len/2);
 	arm_biquad_cascade_df1_q15(&bq_am_q, buffer[1], buffer2[1], len/2);
 
+    disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
+    
     //int32_t acc_z = 0;
 	bufi = buffer2[0];
 	bufq = buffer2[1];
@@ -405,6 +416,8 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
       *d++ = __PKHBT(z, z, 16);
 	}
     //ave_z = ave_z * 0.98 + (0.02 * acc_z / (len/2));
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
 #else
 {
@@ -514,7 +527,7 @@ atan_2iq(uint32_t iq0, uint32_t iq1)
   }
   if (neg)
     ang = -ang;
-  return __SSAT(ang/32, 16);
+  return __SSAT(ang/128, 16);
 }
 
 void
@@ -525,7 +538,8 @@ fm_demod(int16_t *src, int16_t *dst, size_t len)
 	unsigned int i;
 	uint32_t x0 = fm_demod_state.last;
     q15_t v;
-    disp_fetch_samples();
+
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
     
 	for (i = 0; i < len; i += 2) {
         uint32_t x1 = *s++;
@@ -534,6 +548,8 @@ fm_demod(int16_t *src, int16_t *dst, size_t len)
 		x0 = x1;
 	}
 	fm_demod_state.last = x0;
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
 
 // state variables for stereo separation
@@ -650,9 +666,8 @@ stereo_matrix2(int16_t *s1, int16_t *s2, int16_t *dst, int len)
 {
 	int i;
 	for (i = 0; i < len; i++) {
-		uint32_t x1 = *s1++;
-		uint32_t x2 = *s2++;
-        //x2 += x2 / 4;
+		uint32_t x1 = *s1++ / 2;
+		uint32_t x2 = *s2++ / 2;
 		uint32_t l = __QADD16(x1, x2);
 		uint32_t r = __QSUB16(x1, x2);
 		*dst++ = l;
@@ -664,26 +679,44 @@ void
 stereo_matrix3(int16_t *s1, int16_t *s2, int16_t *dst, int len)
 {
 	int i;
-	for (i = 0; i < len; i += 2) {
-        int32_t x1 = *s1++ / 2;
-        int32_t x2 = *s2++ / 2;
+	for (i = 0; i < len; i += 4) {
+        int32_t x1 = *s1++ / 4;
+        int32_t x2 = *s2++ / 4;
 		int32_t l = __QADD16(x1, x2);
 		int32_t r = __QSUB16(x1, x2);
-        int32_t y1 = *s1++ / 2;
-        int32_t y2 = *s2++ / 2;
-        int32_t l2 = __QADD16(y1, y2);
-		int32_t r2 = __QSUB16(y1, y2);
-		*dst++ = __QADD16(l, l2);
-		*dst++ = __QADD16(r, r2);
-		*dst++ = __QADD16(l, l2);
-		*dst++ = __QADD16(r, r2);
+        x1 = *s1++ / 4;
+        x2 = *s2++ / 4;
+		int32_t l0 = __QADD16(x1, x2);
+		int32_t r0 = __QSUB16(x1, x2);
+        l = __QADD16(l, l0);
+        r = __QADD16(r, r0);
+        x1 = *s1++ / 4;
+        x2 = *s2++ / 4;
+        l0 = __QADD16(x1, x2);
+        r0 = __QSUB16(x1, x2);
+        l = __QADD16(l, l0);
+        r = __QADD16(r, r0);
+        x1 = *s1++ / 4;
+        x2 = *s2++ / 4;
+        l0 = __QADD16(x1, x2);
+        r0 = __QSUB16(x1, x2);
+        l = __QADD16(l, l0);
+        r = __QADD16(r, r0);
+		*dst++ = l;
+		*dst++ = r;
+		*dst++ = l;
+		*dst++ = r;
+		*dst++ = l;
+		*dst++ = r;
+		*dst++ = l;
+		*dst++ = r;
 	}
 }
 
 static inline void
 fm_adj_filter(int16_t *src, size_t len)
 {
-    uint32_t *s = __SIMD32(src);
+    int32_t *s = __SIMD32(src);
 	unsigned int i;
 
     uint32_t x1 = fm_demod_state.pre1;
@@ -693,7 +726,7 @@ fm_adj_filter(int16_t *src, size_t len)
     //uint32_t k12 = 0x51ecea3d;
     
 	for (i = 0; i < len; i += 2) {
-        uint32_t x0 = *s;
+        int32_t x0 = *s;
         int32_t acc_i = 0;
         uint32_t i12 = __PKHBT(x2, x1, 16);
         uint32_t i0_ = __PKHBT(zero, x0, 16);
@@ -705,9 +738,9 @@ fm_adj_filter(int16_t *src, size_t len)
         uint32_t q0_ = __PKHTB(x0, zero, 16);
         acc_q = __SMLAD(k12, q12, acc_q);
         acc_q = __SMLADX(k12, q0_, acc_q);
-#if 0
-        acc_i = __SSAT(acc_i / 4096, 16);
-        acc_q = __SSAT(acc_q / 4096, 16);
+#if 1
+        acc_i = __SSAT(acc_i / 8192, 16);
+        acc_q = __SSAT(acc_q / 8192, 16);
         *s++ = __PKHBT(acc_i, acc_q, 16);
 #else
         *s++ = __PKHTB(acc_q, acc_i, 16);
@@ -723,9 +756,6 @@ fm_adj_filter(int16_t *src, size_t len)
 void
 fm_demod0(int16_t *src, int16_t *dst, size_t len)
 {
-    fm_adj_filter(src, len);
-    disp_fetch_samples();
-   
     int32_t *s = __SIMD32(src);
 	uint32_t x0 = fm_demod_state.last;
 	unsigned int i;
@@ -741,9 +771,17 @@ fm_demod0(int16_t *src, int16_t *dst, size_t len)
 void
 fm_demod_stereo(int16_t *src, int16_t *dst, size_t len)
 {
+  // apply frequency response adjustment
+  fm_adj_filter(src, len);
+   
+  disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
   fm_demod0(src, buffer[0], len);
+  disp_fetch_samples(B_IF1, BT_REAL, buffer[0], NULL, len/2);
   stereo_separate(buffer[0], buffer2[0], len/2);
-  stereo_matrix3(buffer[0], buffer2[0], dst, len/2);
+  disp_fetch_samples(B_IF2, BT_REAL, buffer2[0], NULL, len/2);
+  stereo_matrix2(buffer[0], buffer2[0], dst, len/2);
+  //stereo_matrix3(buffer[0], buffer2[0], dst, len/2);
+  disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
 
 #if 0

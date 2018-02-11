@@ -72,7 +72,7 @@ extern int16_t buffer2[2][AUDIO_BUFFER_LEN];
 typedef enum { B_CAPTURE, B_IF1, B_IF2, B_PLAYBACK, BUFFERS_MAX } buffer_t;
 
 typedef struct {
-  enum { BT_INTERLEAVE, BT_IQ, BT_SEPARATE, BT_REAL } type;
+  enum { BT_C_INTERLEAVE, BT_IQ, BT_R_INTERLEAVE, BT_REAL } type;
   int16_t length;
   int16_t *buf0;
   int16_t *buf1;
@@ -186,7 +186,7 @@ void ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, 
 
 void disp_init(void);
 void disp_process(void);
-void disp_fetch_samples(void);
+void disp_fetch_samples(int bufid, int type, int16_t *buf0, int16_t *buf1, size_t len);
 void disp_update(void);
 void disp_update_power(void);
 
