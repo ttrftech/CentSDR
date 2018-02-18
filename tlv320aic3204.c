@@ -188,13 +188,15 @@ void tlv320aic3204_init(void)
   tlv320aic3204_config(conf_data_unmute);
 }
 
+void tlv320aic3204_stop(void)
+{
+  tlv320aic3204_config(conf_data_divoff);
+}
+
 void tlv320aic3204_set_fs(int fs)
 {
   if (fs != 48 && fs != 96 && fs != 192)
     return;
-
-  tlv320aic3204_config(conf_data_divoff);
-  wait_ms(10);
 
   if (fs == 48)
     tlv320aic3204_config(conf_data_clk);
@@ -203,7 +205,7 @@ void tlv320aic3204_set_fs(int fs)
   else if (fs == 192)
     tlv320aic3204_config(conf_data_clk_192kHz);
 
-  wait_ms(40);
+  wait_ms(10);
   tlv320aic3204_config(conf_data_unmute);
 }
 

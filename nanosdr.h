@@ -46,6 +46,7 @@ extern void tlv320aic3204_set_digital_gain(int gain);
 extern void tlv320aic3204_set_volume(int gain);
 extern void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf);
 extern void tlv320aic3204_set_fs(int fs);
+extern void tlv320aic3204_stop(void);
 
 extern void tlv320aic3204_config_adc_filter(int enable);
 extern void tlv320aic3204_set_impedance(int imp);

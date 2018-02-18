@@ -195,9 +195,18 @@ set_fs(int fs)
 
   if (fs != current_fs) {
     current_fs = fs;
+    // stop WCLK,BCLK
+    tlv320aic3204_stop();
+
+    // then stop I2S
     i2sStopExchange(&I2SD2);
-    tlv320aic3204_set_fs(fs);
+    // wait a second (not enough in 20ms)
+    chThdSleepMilliseconds(40);
+    // re-prepare I2S
     i2sStartExchange(&I2SD2);
+
+    // enable WCLK,BCLK
+    tlv320aic3204_set_fs(fs);
   }
 }
 
@@ -574,9 +583,7 @@ static void cmd_fs(BaseSequentialStream *chp, int argc, char *argv[])
   }
 
   if (fs == 48 || fs == 96 || fs == 192) {
-    i2sStopExchange(&I2SD2);
-    tlv320aic3204_set_fs(fs);
-    i2sStartExchange(&I2SD2);
+    set_fs(fs);
     uistat.fs = fs;
   } else {
     chprintf(chp, "usage: fs {48|96|192}\r\n");
