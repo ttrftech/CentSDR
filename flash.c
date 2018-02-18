@@ -70,7 +70,7 @@ checksum(const void *start, size_t len)
 {
   uint32_t *p = (uint32_t*)start;
   uint32_t *tail = (uint32_t*)(start + len);
-  uint32_t value = 0;
+  uint32_t value = len;
   while (p < tail)
     value ^= *p++;
   return value;
