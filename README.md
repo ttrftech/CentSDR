@@ -24,8 +24,7 @@ RF technology.
 
 Install cross tools and firmware updating tool.
  
-    $ brew tap PX4/homebrew-px4
-    $ brew install gcc-arm-none-eabi
+    $ brew cask install gcc-arm-embedded
 	
 ## Fetch Source
 
