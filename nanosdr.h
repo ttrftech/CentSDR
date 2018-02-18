@@ -253,6 +253,7 @@ typedef struct {
   uint16_t dac_value;
   tlv320aic3204_agc_config_t agc;
   channel_t channels[CHANNEL_MAX];
+  uistat_t uistat;
   int32_t checksum;
 } config_t;
 

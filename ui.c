@@ -223,21 +223,12 @@ ui_init(void)
   //chCondObjectInit(&condvar_button);
 #endif
 
-    uistat.mode = CHANNEL;
-	uistat.channel = 0;
-	uistat.freq = 567000;
-	uistat.digit = 3;
-	uistat.modulation = MOD_AM;
-	uistat.volume = 0;
-	uistat.rfgain = 40; // 0 ~ 95
-	//uistat.agcmode = AGC_MANUAL;
-    uistat.agcmode = AGC_MID;
-
 	set_volume(uistat.volume);
 	set_gain(uistat.rfgain);
     set_agc_mode(uistat.agcmode);
-    recall_channel(uistat.channel);
-    //update_frequency();
+	set_modulation(uistat.modulation);
+    //recall_channel(uistat.channel);
+    update_frequency();
 }
 
 static int minmax(int x, int min, int max)

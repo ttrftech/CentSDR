@@ -135,6 +135,17 @@ config_t config = {
     .target_level = 6,
     .maximum_gain = 127
   },
+  .uistat = {
+    .mode = CHANNEL,
+	.channel = 0,
+    .freq = 567000,
+	.digit = 3,
+	.modulation = MOD_AM,
+	.volume = 0,
+	.rfgain = 40, // 0 ~ 95
+	//.agcmode = AGC_MANUAL,
+    .agcmode = AGC_MID
+  },
   .channels = {
     /*    freq, modulation */
     {   567000, MOD_AM },
@@ -680,7 +691,9 @@ static void cmd_save(BaseSequentialStream *chp, int argc, char *argv[])
   (void)argc;
   (void)argv;
 
+  config.uistat = uistat;
   config_save();
+  
   chprintf(chp, "Config saved.\r\n");
 }
 
@@ -797,6 +810,9 @@ int __attribute__((noreturn)) main(void)
 
   /* restore config */
   config_recall();
+
+  // copy uistat from uistat
+  uistat = config.uistat;
 
   /*
    * Starting DAC1 driver, setting up the output pin as analog as suggested
