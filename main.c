@@ -119,6 +119,9 @@ const buffer_ref_t buffers_table[BUFFERS_MAX] = {
   { BT_R_INTERLEAVE, AUDIO_BUFFER_LEN, tx_buffer,  NULL }
 };
 
+const char *agcmode_table[] = {
+  "manual", "slow", "mid", "fast"
+};
 
 signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;
@@ -159,12 +162,13 @@ struct {
   signal_process_func_t demod_func;
   int16_t freq_offset;
   int16_t fs;
+  const char *name;
 } mod_table[] = {
-  { lsb_demod,             0,  48 },
-  { usb_demod,             0,  48 },
-  { am_demod, AM_FREQ_OFFSET,  48 },
-  { fm_demod,              0, 192 },
-  { fm_demod_stereo,       0, 192 },
+  { lsb_demod,             0,  48, "lsb" },
+  { usb_demod,             0,  48, "usb" },
+  { am_demod, AM_FREQ_OFFSET,  48, "am" },
+  { fm_demod,              0, 192, "fm" },
+  { fm_demod_stereo,       0, 192, "fms" },
 };
 
 void set_modulation(modulation_t mod)
@@ -604,25 +608,35 @@ static void cmd_winfunc(BaseSequentialStream *chp, int argc, char *argv[])
 
 static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
 {
-    if (argc == 0) {
-      chprintf(chp, "usage: show {wf|wave}\r\n");
-      return;
-    }
-
-    if (strncmp(argv[0], "wf", 2) == 0)
-      ;
-    else if (strncmp(argv[0], "wave", 4) == 0)
-      ;
-    else {
-      chprintf(chp, "usage: show {wf|wave}\r\n");
-      return;
-    }
+  if (argc == 0 || strcmp(argv[0], "all") == 0) {
+    chprintf(chp, "tune: %d\r\n", uistat.freq);
+    chprintf(chp, "volume: %d\r\n", uistat.volume);
+    chprintf(chp, "mode: %s\r\n", mod_table[uistat.mode].name);
+    chprintf(chp, "gain: %d\r\n", uistat.rfgain);
+    chprintf(chp, "channel: %d\r\n", uistat.channel);
+    chprintf(chp, "agc: %s\r\n", agcmode_table[uistat.agcmode]);
+  } else if (strcmp(argv[0], "tune") == 0) {
+    chprintf(chp, "%d\r\n", uistat.freq);
+  } else if (strcmp(argv[0], "volume") == 0) {
+    chprintf(chp, "%d\r\n", uistat.volume);
+  } else if (strcmp(argv[0], "mode") == 0) {
+    chprintf(chp, "%s\r\n", mod_table[uistat.mode].name);
+  } else if (strcmp(argv[0], "gain") == 0) {
+    chprintf(chp, "%d\r\n", uistat.rfgain);
+  } else if (strcmp(argv[0], "channel") == 0) {
+    chprintf(chp, "%d\r\n", uistat.channel);
+  } else if (strcmp(argv[0], "agc") == 0) {
+    chprintf(chp, "agc: %s\r\n", agcmode_table[uistat.agcmode]);
+  } else {
+    chprintf(chp, "usage: show [all|tune|volume|gain|agc]\r\n");
+    return;
+  }
 }
 
 static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
 {
     if (argc == 0) {
-      chprintf(chp, "usage: channel [n(0-99)]\r\n");
+      chprintf(chp, "usage: channel [save|list] [n(0-99)]\r\n");
       return;
     }
 
@@ -640,6 +654,14 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
       }
       config.channels[channel].freq = uistat.freq;
       config.channels[channel].modulation = uistat.modulation;
+    } else if (strncmp(argv[0], "list", 1) == 0) {
+      for (channel = 0; channel < CHANNEL_MAX; channel++) {
+        if (config.channels[channel].freq) {
+          chprintf(chp, "%d %d %s\r\n", channel,
+                   config.channels[channel].freq,
+                   mod_table[config.channels[channel].modulation].name);
+        }
+      }
     } else {
       channel = atoi(argv[0]);
       if (channel < 0 || channel >= CHANNEL_MAX) {
