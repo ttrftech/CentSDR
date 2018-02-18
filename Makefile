@@ -243,7 +243,8 @@ TAGS: Makefile
 .PHONY: flash
 
 flash: all
-	arm-none-eabi-gdb -x flash.gdb --silent
+	arm-none-eabi-gdb -x flash-stutil.gdb --silent
+	@#arm-none-eabi-gdb -x flash-openocd.gdb --silent
 
 RELEASE=$(shell date +%Y%m%d)
 DIST_FILES= build/ch.bin build/ch.hex build/ch.elf

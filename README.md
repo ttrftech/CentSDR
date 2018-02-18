@@ -42,7 +42,31 @@ Just make in the top directory.
 
     $ make
 
-## Flash firmware using st-util and gdb
+## Flash firmware
+
+### Using OpenOCD and gdb
+
+Prepare openocd.
+
+    $ brew install openocd
+
+Connect ST-Link2 to target board, then launch openocd as follows.
+
+    $ openocd -f board/stm32f3discovery.cfg
+
+Flash firmware using gdb.
+
+    $ arm-none-eabi-gdb 
+    > target extended-remote :4242
+    > exec build/ch.elf 
+    > load
+    > quit
+
+Or use gdb script to flash.
+
+    $ arm-none-eabi-gdb -x flash-openocd.gdb --silent
+
+### Using st-util and gdb
 
 Prepare stlink utilities.
 
@@ -54,7 +78,7 @@ Connect target board via SWD with ST-Link2, In other terminal, launch st-util
 
 Then, flash the firmware.
 
-    $ make flash
+    $ arm-none-eabi-gdb -x flash-stutil.gdb --silent
 
 ## Flash firmware using Nucleo st-link v2.1
 
