@@ -622,7 +622,7 @@ static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
   if (argc == 0 || strcmp(argv[0], "all") == 0) {
     chprintf(chp, "tune: %d\r\n", uistat.freq);
     chprintf(chp, "volume: %d\r\n", uistat.volume);
-    chprintf(chp, "mode: %s\r\n", mod_table[uistat.mode].name);
+    chprintf(chp, "mode: %s\r\n", mod_table[uistat.modulation].name);
     chprintf(chp, "gain: %d\r\n", uistat.rfgain);
     chprintf(chp, "channel: %d\r\n", uistat.channel);
     chprintf(chp, "agc: %s\r\n", agcmode_table[uistat.agcmode]);
@@ -631,7 +631,7 @@ static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
   } else if (strcmp(argv[0], "volume") == 0) {
     chprintf(chp, "%d\r\n", uistat.volume);
   } else if (strcmp(argv[0], "mode") == 0) {
-    chprintf(chp, "%s\r\n", mod_table[uistat.mode].name);
+    chprintf(chp, "%s\r\n", mod_table[uistat.modulation].name);
   } else if (strcmp(argv[0], "gain") == 0) {
     chprintf(chp, "%d\r\n", uistat.rfgain);
   } else if (strcmp(argv[0], "channel") == 0) {
