@@ -38,9 +38,10 @@ int fetch_encoder_tick(void);
 #define EVT_PUSH_UP				0x30
 #define EVT_PUSH_DOWN			0x40
 
-#define BUTTON_DOWN_LONG_TICKS		8000
+#define BUTTON_DOWN_LONG_TICKS		16000
 #define BUTTON_DOUBLE_TICKS			500
 #define BUTTON_DEBOUNCE_TICKS		10
+#define BUTTON_NO_ACTION 0
 
 #define BIT_PUSH	0
 #define BIT_ENCODER0	1
@@ -91,8 +92,10 @@ int btn_check(void)
 	} else {
 		// button unchanged
         if ((cur_button & (1<<BIT_PUSH))
+            && !button_event_inhibited
 			&& ticks >= last_button_down_ticks + BUTTON_DOWN_LONG_TICKS) {
 			status |= EVT_BUTTON_DOWN_LONG;
+            button_event_inhibited = 1;
 		}
 	}
 
@@ -252,6 +255,9 @@ ui_process(void)
         uistat.mode++;
       uistat.mode %= MODE_MAX;
       disp_update();
+    } else if (status & EVT_BUTTON_DOWN_LONG) {
+      tlv320aic3204_beep();
+      save_config_current_channel();
     }
     if (tick != 0) {
       if (read_buttons() != 0) {

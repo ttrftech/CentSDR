@@ -225,6 +225,16 @@ set_fs(int fs)
   }
 }
 
+void
+save_config_current_channel(void)
+{
+  int channel = uistat.channel;
+  config.channels[channel].freq = uistat.freq;
+  config.channels[channel].modulation = uistat.modulation;
+  
+  config.uistat = uistat;
+  config_save();
+}
 
 void i2s_end_callback(I2SDriver *i2sp, size_t offset, size_t n)
 {

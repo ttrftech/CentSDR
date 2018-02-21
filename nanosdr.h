@@ -56,6 +56,8 @@ extern int8_t tlv320aic3204_get_left_agc_gain(void);
 extern int8_t tlv320aic3204_get_right_agc_gain(void);
 extern void tlv320aic3204_set_adc_phase_adjust(int8_t adjust);
 
+extern void tlv320aic3204_beep(void);
+
 #define AIC3204_STICKY_ADC_OVERFLOW 0x0c
 
 /*
