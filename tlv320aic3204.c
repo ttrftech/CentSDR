@@ -83,8 +83,8 @@ static const uint8_t conf_data_clk[] = {
   2, 0x0c, 0x87, /* Power up the MDAC divider with value 7 */
   2, 0x0d, 0x00, /* Program the OSR of DAC to 128 */
   2, 0x0e, 0x80,
-  2, 0x3c, 0x08, /* Set the DAC Mode to PRB_P8 */
-  //2, 0x3c, 25, /* Set the DAC Mode to PRB_P25 */
+  //2, 0x3c, 0x08, /* Set the DAC Mode to PRB_P8 */
+  2, 0x3c, 25, /* Set the DAC Mode to PRB_P25 */
   2, 0x1b, 0x0c, /* Set the BCLK,WCLK as output */    
   2, 0x1e, 0x80 + 28, /* Enable the BCLKN divider with value 28 */
   2, 0x25, 0xee, /* DAC power up */
