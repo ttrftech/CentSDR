@@ -123,19 +123,6 @@ send_command(uint8_t cmd, int len, const uint8_t *data)
 	//CS_HIGH;
 }
 
-void
-send_command16(uint8_t cmd, int data)
-{
-	CS_LOW;
-	DC_CMD;
-    ssp_databit8();
-	ssp_senddata(cmd);
-	DC_DATA;
-    ssp_databit16();
-	ssp_senddata16(data);
-	CS_HIGH;
-}
-
 const uint8_t ili9341_init_seq[] = {
 		// cmd, len, data...,
 		// Power control B
@@ -247,20 +234,6 @@ void ili9341_fill(int x, int y, int w, int h, int color)
       ssp_senddata16(color);
 }
 
-#if 0
-void ili9341_bulk(int x, int y, int w, int h)
-{
-	uint8_t xx[4] = { x >> 8, x, (x+w-1) >> 8, (x+w-1) };
-	uint8_t yy[4] = { y >> 8, y, (y+h-1) >> 8, (y+h-1) };
-	uint16_t *buf = spi_buffer;
-    int len = w * h;
-	send_command(0x2A, 4, xx);
-	send_command(0x2B, 4, yy);
-	send_command(0x2C, 0, NULL);
-    while (len-- > 0) 
-      ssp_senddata16(*buf++);
-}
-#else
 void ili9341_draw_bitmap(int x, int y, int w, int h, uint16_t *buf)
 {
 	uint8_t xx[4] = { x >> 8, x, (x+w-1) >> 8, (x+w-1) };
@@ -278,12 +251,6 @@ void ili9341_draw_bitmap(int x, int y, int w, int h, uint16_t *buf)
     dmaWaitCompletion(dmatx);
 }
 
-void ili9341_bulk(int x, int y, int w, int h)
-{
-    ili9341_draw_bitmap(x, y, w, h, spi_buffer);
-}
-#endif
-
 void
 ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg)
 {
@@ -297,7 +264,7 @@ ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg)
       bits <<= 1;
     }
   }
-  ili9341_bulk(x, y, 5, 7);
+  ili9341_draw_bitmap(x, y, 5, 7, spi_buffer);
 }
 
 void
@@ -311,42 +278,6 @@ ili9341_drawstring_5x7(const char *str, int x, int y, uint16_t fg, uint16_t bg)
 }
 
 #define SWAP(x,y) do { int z=x; x = y; y = z; } while(0)
-
-void
-ili9341_line(int x0, int y0, int x1, int y1, uint16_t fg)
-{
-  if (x0 > x1) {
-    SWAP(x0, x1);
-    SWAP(y0, y1);
-  }
-
-  while (x0 <= x1) {
-    int dx = x1 - x0 + 1;
-    int dy = y1 - y0;
-    if (dy >= 0) {
-      dy++;
-      if (dy > dx) {
-        dy /= dx; dx = 1;
-      } else {
-        dx /= dy; dy = 1;
-      }
-    } else {
-      dy--;
-      if (-dy > dx) {
-        dy /= dx; dx = 1;
-      } else {
-        dx /= -dy; dy = -1;
-      }
-    }
-    if (dy > 0)
-      ili9341_fill(x0, y0, dx, dy, fg);
-    else
-      ili9341_fill(x0, y0+dy, dx, -dy, fg);
-    x0 += dx;
-    y0 += dy;
-  }
-}
-
 
 const font_t NF20x24 = { 20, 24, 1, 24, 1, (const uint32_t *)numfont20x24 };
 const font_t NF32x24 = { 32, 24, 1, 24, 1, (const uint32_t *)numfont32x24 };
@@ -373,7 +304,7 @@ ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint
 			}
 		}
 	}
-    ili9341_bulk(x, y, font->width, font->height);
+    ili9341_draw_bitmap(x, y, font->width, font->height, spi_buffer);
 }
 
 void
@@ -394,56 +325,3 @@ ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, uint1
     x += font->width;
   }
 }
-
-#if 0
-static const uint16_t colormap[] = {
-  RGB565(255,0,0), RGB565(0,255,0), RGB565(0,0,255),
-  RGB565(255,255,0), RGB565(0,255,255), RGB565(255,0,255)
-};
-
-void
-ili9341_test(int mode)
-{
-  int x, y;
-  int i;
-  switch (mode) {
-  default:
-#if 1
-    ili9341_fill(0, 0, 320, 240, 0);
-    for (y = 0; y < 240; y++) {
-      ili9341_fill(0, y, 320, 1, RGB565(y, (y + 120) % 256, 240-y));
-    }
-    break;
-  case 1:
-    ili9341_fill(0, 0, 320, 240, 0);
-    for (y = 0; y < 240; y++) {
-      for (x = 0; x < 320; x++) {
-        ili9341_pixel(x, y, (y<<8)|x);
-      }
-    }
-    break;
-  case 2:
-    //send_command16(0x55, 0xff00);
-    ili9341_pixel(64, 64, 0xaa55);
-    break;
-#endif
-#if 1
-  case 3:
-	for (i = 0; i < 10; i++)
-      ili9341_drawfont(i, &NF20x24, i*20, 120, colormap[i%6], 0x0000);
-    break;
-#endif
-#if 0
-  case 4:
-    draw_grid(10, 8, 29, 29, 15, 0, 0xffff, 0);
-    break;
-#endif
-  case 4:
-    ili9341_line(0, 0, 15, 100, 0xffff);
-    ili9341_line(0, 0, 100, 100, 0xffff);
-    ili9341_line(0, 15, 100, 0, 0xffff);
-    ili9341_line(0, 100, 100, 0, 0xffff);
-    break;
-  }
-}
-#endif
