@@ -151,7 +151,7 @@
                                      PIN_OSPEED_50M(GPIOA_USART2_TX) |       \
                                      PIN_OSPEED_50M(GPIOA_USART2_RX) |       \
                                      PIN_OSPEED_100M(4) |          \
-                                     PIN_OSPEED_50M(5) |           \
+                                     PIN_OSPEED_100M(5) |          \
                                      PIN_OSPEED_100M(6) |          \
                                      PIN_OSPEED_100M(7) |          \
                                      PIN_OSPEED_100M(GPIOA_MCO) | \
@@ -183,7 +183,7 @@
                                      PIN_ODR_HIGH(GPIOA_USART2_TX) |         \
                                      PIN_ODR_HIGH(GPIOA_USART2_RX) |         \
                                      PIN_ODR_HIGH(4) |             \
-                                     PIN_ODR_LOW(5) |              \
+                                     PIN_ODR_HIGH(5) |              \
                                      PIN_ODR_HIGH(6) |             \
                                      PIN_ODR_HIGH(7) |             \
                                      PIN_ODR_HIGH(GPIOA_MCO) |             \
