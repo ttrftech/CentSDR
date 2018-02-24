@@ -370,7 +370,20 @@ void tlv320aic3204_set_adc_phase_adjust(int8_t adjust)
 
 void tlv320aic3204_beep(void)
 {
-  tlv320aic3204_write(0x4a, 0x10);
+  /*
+  tlv320aic3204_write(0x25, 00); // power off dac
+  wait_ms(10);
+  tlv320aic3204_write(0x3c, 25); // select PRB_P25 to beep
+  tlv320aic3204_write(0x25, 0xee); // DAC power on
+  */
+  
+  // set duration
+  tlv320aic3204_write(0x4a, 0x10); 
   tlv320aic3204_write(0x4b, 0x00);
-  tlv320aic3204_write(0x47, 0x80);
+  // beep
+  tlv320aic3204_write(0x47, 0x80); 
+
+  /*
+  tlv320aic3204_write(0x3c, 17); // restore to PRB_P17
+  */
 }
