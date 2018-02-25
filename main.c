@@ -374,6 +374,27 @@ measure_power_dbm(void)
   measured_power_dbm = dbm;
 }
 
+uint16_t adc_single_read(ADC_TypeDef *adc, uint32_t chsel)
+{
+  /* ADC setup */
+  adc->ISR    = adc->ISR;
+  adc->IER    = 0;
+  adc->SMPR1  = ADC_SMPR1_SMP0_2; // 19.5 cycle
+  adc->CFGR   = 0; // 12bit
+  adc->SQR1   = chsel << 6;
+
+  /* ADC conversion start.*/
+  adc->CR |= ADC_CR_ADSTART;
+  while (adc->CR & ADC_CR_ADSTART)
+    ;
+
+  return adc->DR;
+}
+
+#define ADC1_CHANNEL_TEMP 16
+#define ADC1_CHANNEL_BAT  17
+#define ADC1_CHANNEL_VREF 18
+
 static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -394,6 +415,10 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
   chprintf(chp, "fm stereo: %d %d\r\n", stereo_separate_state.sdi, stereo_separate_state.sdq);
   chprintf(chp, "  corr: %d %d %d\r\n", stereo_separate_state.corr, stereo_separate_state.corr_ave, stereo_separate_state.corr_std);
   chprintf(chp, "  int: %d\r\n", stereo_separate_state.integrator);
+
+  chprintf(chp, "temp: %d\r\n", adc_single_read(ADC1, ADC1_CHANNEL_TEMP));
+  chprintf(chp, "bat: %d\r\n", adc_single_read(ADC1, ADC1_CHANNEL_BAT));
+  chprintf(chp, "vref: %d\r\n", adc_single_read(ADC1, ADC1_CHANNEL_VREF));
   
 #if 0
   p = &tx_buffer[0];
@@ -831,6 +856,15 @@ int __attribute__((noreturn)) main(void)
   dac1cfg1.init = config.dac_value;
   dacStart(&DACD1, &dac1cfg1);
 
+  /*
+   * Activates the ADC1 driver and the temperature sensor.
+   */
+  adcStart(&ADCD1, NULL);
+  adcSTM32EnableTS(&ADCD1);
+  adcSTM32EnableVBAT(&ADCD1);
+  adcSTM32EnableVREF(&ADCD1);
+
+  
   i2cStart(&I2CD1, &i2ccfg);
   /*
    * Initializes a serial-over-USB CDC driver.
