@@ -228,7 +228,8 @@ si5351_set_frequency_fixeddiv(int channel, int pll, int freq, int div,
     si5351_setupMultisynth(channel, pll, div, 0, 1, SI5351_R_DIV_1, drive_strength);
 }
 
-#define drive_strength SI5351_CLK_DRIVE_STRENGTH_2MA
+//#define drive_strength SI5351_CLK_DRIVE_STRENGTH_2MA
+#define drive_strength SI5351_CLK_DRIVE_STRENGTH_8MA
 int current_band = -1;
 
 void
