@@ -1198,6 +1198,7 @@ draw_channel_freq(void)
 
 #define FG_VOLUME 0xfffe
 #define FG_MOD RGB565(255,0,0)
+#define FG_AGC RGB565(255,255,0)
 
 
 void
@@ -1260,7 +1261,7 @@ draw_info(void)
 	ili9341_drawfont(uistat.modulation, &ICON48x20, x+2, y+2, fg, bg);
 	x += 48+4;
 
-	fg = uistat.mode == AGC ? FG_ACTIVE : FG_NORMAL;
+	fg = uistat.mode == AGC ? FG_ACTIVE : FG_AGC;
 	ili9341_drawfont(uistat.agcmode + ICON_AGC_OFF, &ICON48x20, x+2, y+2, fg, bg);
 	x += 48+4;
 
