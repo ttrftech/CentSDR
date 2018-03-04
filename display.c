@@ -534,6 +534,10 @@ arm_cfft_radix4_instance_q31 cfft_inst;
 #define BG_ACTIVE RGB565(15,10,10)
 #define BG_NORMAL 0x0000
 
+#define FG_ACTIVE RGB565(128,255,128)
+#define FG_NORMAL 0xffff
+
+
 uistat_t uistat;
 
 
@@ -876,11 +880,14 @@ inrange(int v0, int v1, int y)
   }
 }
 
+#define FG_SCALE RGB565(15,15,15)
+
 void
 draw_waveform(void)
 {
 	q31_t *buf = spdispinfo.buffer;
-	uint16_t bg = uistat.mode == WFDISP ? BG_ACTIVE : BG_NORMAL;
+	uint16_t fg = uistat.mode == WFDISP ? FG_ACTIVE : FG_SCALE;
+	uint16_t bg = BG_NORMAL;
     uint16_t c;
 	int x, y;
     int xx;
@@ -927,10 +934,10 @@ draw_waveform(void)
           c = bg;
           // draw origin line
           if (y == HEIGHT/2)
-            c = RGB565(15,15,15);
+            c = fg;
           // draw 1ms tick
           if (x % 48 == 0)
-            c = RGB565(15,15,15);
+            c = fg;
 
           if (y == i1 || (imin < y && y <= imax))
             c |= RGB565(255, 255, 0);
@@ -1034,7 +1041,8 @@ draw_tick_abs(void)
 	char str[10];
 	uint16_t mode = uistat.spdispmode;
     const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
-	uint16_t bg = uistat.mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = BG_NORMAL;
+	uint16_t fg = uistat.mode == SPDISP ? FG_ACTIVE : FG_NORMAL;
 	int offset = param->origin;
 	//int step = param->tickstep;
 	int unit = param->tickunit;
@@ -1054,8 +1062,8 @@ draw_tick_abs(void)
 	while (x < 320) {
       itoap((int)freq % 1000, str, 3, '0');
       if (x >= 0)
-        ili9341_fill((int)x, 136, 2, 5, 0xffff);
-      ili9341_drawstring_5x7(str, (int)x - 7, 142, 0xffff, bg);
+        ili9341_fill((int)x, 136, 2, 5, fg);
+      ili9341_drawstring_5x7(str, (int)x - 7, 142, fg, bg);
       x += step;
       freq += unit;
 	}
@@ -1076,15 +1084,16 @@ draw_tick(void)
 	int x = param->origin;
 	int base = param->tickbase;
 	int xx;
-	uint16_t bg = uistat.mode == SPDISP ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = BG_NORMAL;
+	uint16_t fg = uistat.mode == SPDISP ? FG_ACTIVE : FG_NORMAL;
 
 	ili9341_fill(0, 136, 320, 16, bg);
     itoa(base, str, 10);
     strcat(str, param->unitname);
 	xx = x - strlen(str) * 5 / 2;
 	if (xx < 0) xx = 0;
-	ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
-	ili9341_fill(x, 136, 2, 5, 0xffff);
+	ili9341_drawstring_5x7(str, xx, 142, fg, bg);
+	ili9341_fill(x, 136, 2, 5, fg);
 
 	base += param->tickunit;
 	x += param->tickstep;
@@ -1092,7 +1101,7 @@ draw_tick(void)
       itoa(base, str, 10);
 		ili9341_fill(x, 136, 2, 5, 0xffff);
         int xx = x - strlen(str) * 5 / 2;
-		ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
+		ili9341_drawstring_5x7(str, xx, 142, fg, bg);
 		base += param->tickunit;
 		x += param->tickstep;
 	}
@@ -1104,7 +1113,7 @@ draw_tick(void)
       itoa(base, str, 10);
 		ili9341_fill(x, 136, 2, 5, 0xffff);
         int xx = x - strlen(str) * 5 / 2;
-		ili9341_drawstring_5x7(str, xx, 142, 0xffff, bg);
+		ili9341_drawstring_5x7(str, xx, 142, fg, bg);
 		base -= param->tickunit;
 		x -= param->tickstep;
 	}
@@ -1114,7 +1123,7 @@ void
 draw_freq(void)
 {
 	char str[10];
-	uint16_t bg = uistat.mode == FREQ ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = BG_NORMAL;
 	int i;
 	const uint16_t xsim[] = { 0, 16, 0, 0, 16, 0, 0, 0 };
 	uint16_t x = 0;
@@ -1124,7 +1133,7 @@ draw_freq(void)
 		uint16_t fg = 0xffff;
         int focused = FALSE;
 		if (uistat.mode == FREQ && uistat.digit == 7-i) {
-            fg = RGB565(128,255,128);
+            fg = FG_ACTIVE;
             focused = TRUE;
         }
 		if (c >= 0 && c <= 9)
@@ -1149,16 +1158,17 @@ void
 draw_channel_freq(void)
 {
 	char str[10];
-	uint16_t bg = uistat.mode == CHANNEL ? BG_ACTIVE : BG_NORMAL;
+	uint16_t bg = BG_NORMAL;
+	uint16_t fg = uistat.mode == CHANNEL ? FG_ACTIVE : FG_NORMAL;
 	int i;
 	const uint16_t xsim[] = { 0, 16, 0, 0, 0 };
 	uint16_t x = 0;
 
     ili9341_fill(x, 0, 20*2, 24, bg);
     itoap(uistat.channel, str, 2, ' ');
-	ili9341_drawfont(uistat.channel / 10, &NF20x24, x, 24, 0xffff, bg);
+	ili9341_drawfont(uistat.channel / 10, &NF20x24, x, 24, fg, bg);
     x += 20;
-	ili9341_drawfont(uistat.channel % 10, &NF20x24, x, 24, 0xffff, bg);
+	ili9341_drawfont(uistat.channel % 10, &NF20x24, x, 24, fg, bg);
     x += 20;
 
     bg = BG_NORMAL;
@@ -1170,7 +1180,7 @@ draw_channel_freq(void)
 		int8_t c = str[i] - '0';
 		uint16_t fg = 0xffff;
 		if (c >= 0 && c <= 9)
-			ili9341_drawfont(c, &NF32x48, x, 0, fg, bg);
+			ili9341_drawfont(c, &NF32x48, x, 0, FG_NORMAL, bg);
         else
 			ili9341_fill(x, 0, 32, 48, bg);
 		x += 32;
@@ -1182,9 +1192,9 @@ draw_channel_freq(void)
 		}
 	}
 	// draw kHz symbol
-	ili9341_drawfont(11, &NF32x48, x, 0, 0xffff, bg);
+	ili9341_drawfont(11, &NF32x48, x, 0, FG_NORMAL, bg);
     x += 20;
-	ili9341_drawfont(10, &NF32x48, x, 0, 0xffff, bg);
+	ili9341_drawfont(10, &NF32x48, x, 0, FG_NORMAL, bg);
 }
 
 #define FG_VOLUME 0xfffe
@@ -1233,30 +1243,30 @@ draw_info(void)
 	char str[10];
 	int x = 0;
 	int y = 48;
-	uint16_t bg = uistat.mode == VOLUME ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(14, &NF20x24, x, y, FG_VOLUME, bg);
+	uint16_t bg = BG_NORMAL;
+    uint16_t fg = uistat.mode == VOLUME ? FG_ACTIVE : FG_VOLUME;
+	ili9341_drawfont(14, &NF20x24, x, y, fg, bg);
 	x += 20;
 	if (uistat.volume != -7)
       itoap(uistat.volume, str, 2, ' ');
 	else
 		// -infinity
 		strcpy(str, "-\003");
-	ili9341_drawfont_string(str, &NF20x24, x, y, FG_VOLUME, bg);
+	ili9341_drawfont_string(str, &NF20x24, x, y, fg, bg);
 	x += 40;
-	ili9341_drawfont(13, &NF20x24, x, y, FG_VOLUME, bg);
+	ili9341_drawfont(13, &NF20x24, x, y, fg, bg);
 	x += 20;
 
-	bg = uistat.mode == MOD ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(uistat.modulation, &ICON48x20, x+2, y+2, FG_MOD, bg);
+	fg = uistat.mode == MOD ? FG_ACTIVE : FG_MOD;
+	ili9341_drawfont(uistat.modulation, &ICON48x20, x+2, y+2, fg, bg);
 	x += 48+4;
 
-	bg = uistat.mode == AGC ? BG_ACTIVE : BG_NORMAL;
-	ili9341_drawfont(uistat.agcmode + ICON_AGC_OFF, &ICON48x20, x+2, y+2, 0xffff, bg);
+	fg = uistat.mode == AGC ? FG_ACTIVE : FG_NORMAL;
+	ili9341_drawfont(uistat.agcmode + ICON_AGC_OFF, &ICON48x20, x+2, y+2, fg, bg);
 	x += 48+4;
 
-    bg = uistat.mode == RFGAIN ? BG_ACTIVE : BG_NORMAL;
     if (!uistat.agcmode) {
-      uint16_t fg = 0x07ff;
+      fg = uistat.mode == RFGAIN ? FG_ACTIVE : 0x07ff;
       if (uistat.rfgain < 0 || uistat.rfgain >= 96)
         fg = 0x070f;
       draw_db(uistat.rfgain << 7, x, y, fg, bg);
