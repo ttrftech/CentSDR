@@ -319,6 +319,16 @@ q15_t bq_coeffs_am[] = {
 arm_biquad_casd_df1_inst_q15 bq_am_i = { 3, bq_i_state, bq_coeffs_am, 1};
 arm_biquad_casd_df1_inst_q15 bq_am_q = { 3, bq_q_state, bq_coeffs_am, 1};
 
+// 6th order elliptic lowpass filter fc=150Hz, 60dB
+q15_t bq_coeffs_150hz[] = {
+	149, 0, -296, 149, 32593, -16210,
+	3579, 0, -7154, 3579, 32669, -16289,
+	8206, 0, -16406, 8206, 32735, -16358
+};
+
+arm_biquad_casd_df1_inst_q15 bq_cw_i = { 3, bq_i_state, bq_coeffs_150hz, 1};
+arm_biquad_casd_df1_inst_q15 bq_cw_q = { 3, bq_q_state, bq_coeffs_150hz, 1};
+
 void
 ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 {
@@ -447,6 +457,55 @@ usb_demod(int16_t *src, int16_t *dst, size_t len)
 {
   ssb_demod(src, dst, len, SSB_NCO_PHASESTEP);
 }
+
+
+int16_t cw_phasestep1 = 65536L*10000/48000;;
+int16_t cw_phasestep2 = 65536L*400/48000;
+
+void
+cw_demod(int16_t *src, int16_t *dst, size_t len)
+{
+	q15_t *bufi = buffer[0];
+	q15_t *bufq = buffer[1];
+    int32_t *s = __SIMD32(src);
+    int32_t *d = __SIMD32(dst);
+    uint32_t i;
+
+    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+
+    // shift frequency
+    for (i = 0; i < len/2; i++) {
+		uint32_t cossin = cos_sin(nco1_phase);
+		nco1_phase -= cw_phasestep1;
+		uint32_t iq = *s++;
+		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
+		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
+	}
+    disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
+
+    // apply low pass filter
+	arm_biquad_cascade_df1_q15(&bq_cw_i, buffer[0], buffer2[0], len/2);
+	arm_biquad_cascade_df1_q15(&bq_cw_q, buffer[1], buffer2[1], len/2);
+
+    disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
+
+    // shift frequency inverse
+	bufi = buffer2[0];
+	bufq = buffer2[1];
+    for (i = 0; i < len/2; i++) {
+		uint32_t cossin = cos_sin(nco2_phase);
+		nco2_phase -= cw_phasestep2;
+		uint32_t iq = __PKHBT(*bufi++, *bufq++, 16);
+		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
+        *d++ = __PKHBT(r, r, 16);
+	}
+
+    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
+}
+
+
+
+
 
 
 struct {

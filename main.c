@@ -175,6 +175,7 @@ struct {
   int16_t fs;
   const char *name;
 } mod_table[] = {
+  { cw_demod, AM_FREQ_OFFSET,  48, "cw" },
   { lsb_demod,             0,  48, "lsb" },
   { usb_demod,             0,  48, "usb" },
   { am_demod, AM_FREQ_OFFSET,  48, "am" },
@@ -617,6 +618,8 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
       set_modulation(MOD_LSB);
     } else if (strncmp(cmd, "usb", 1) == 0) {
       set_modulation(MOD_USB);
+    } else if (strncmp(cmd, "cw", 1) == 0) {
+      set_modulation(MOD_CW);
     } else if (strncmp(cmd, "fms", 3) == 0) {
       set_modulation(MOD_FM_STEREO);
     } else if (strncmp(cmd, "fm", 1) == 0) {

@@ -1198,7 +1198,8 @@ draw_channel_freq(void)
 }
 
 #define FG_VOLUME 0xfffe
-#define FG_MOD 0xffe0
+//#define FG_MOD 0xffe0
+#define FG_MOD RGB565(255,0,0)
 
 
 void

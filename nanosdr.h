@@ -89,6 +89,7 @@ typedef void (*signal_process_func_t)(int16_t *src, int16_t *dst, size_t len);
 extern signal_process_func_t signal_process;
 
 void am_demod(int16_t *src, int16_t *dst, size_t len);
+void cw_demod(int16_t *src, int16_t *dst, size_t len);
 void lsb_demod(int16_t *src, int16_t *dst, size_t len);
 void usb_demod(int16_t *src, int16_t *dst, size_t len);
 void fm_demod(int16_t *src, int16_t *dst, size_t len);
@@ -149,7 +150,7 @@ extern const uint32_t icons48x20[][20*2];
 #define S_DEGREE "\037"
 #define S_RARROW "\033"
 
-#define ICON_AGC_OFF 5
+#define ICON_AGC_OFF 6
 
 
 /*
@@ -206,6 +207,7 @@ extern void ui_init(void);
 extern void ui_process(void);
 
 typedef enum {
+	MOD_CW,
 	MOD_LSB,
 	MOD_USB,
 	MOD_AM,
