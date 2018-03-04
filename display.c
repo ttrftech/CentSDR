@@ -1178,7 +1178,6 @@ draw_channel_freq(void)
     itoap(uistat.freq / 1000, str, 5, ' ');
 	for (i = 0; i < 5; i++) {
 		int8_t c = str[i] - '0';
-		uint16_t fg = 0xffff;
 		if (c >= 0 && c <= 9)
 			ili9341_drawfont(c, &NF32x48, x, 0, FG_NORMAL, bg);
         else
@@ -1198,8 +1197,8 @@ draw_channel_freq(void)
 }
 
 #define FG_VOLUME 0xfffe
-//#define FG_MOD 0xffe0
 #define FG_MOD RGB565(255,0,0)
+#define FG_AGC RGB565(255,255,0)
 
 
 void
@@ -1262,16 +1261,20 @@ draw_info(void)
 	ili9341_drawfont(uistat.modulation, &ICON48x20, x+2, y+2, fg, bg);
 	x += 48+4;
 
-	fg = uistat.mode == AGC ? FG_ACTIVE : FG_NORMAL;
+	fg = uistat.mode == AGC ? FG_ACTIVE : FG_AGC;
 	ili9341_drawfont(uistat.agcmode + ICON_AGC_OFF, &ICON48x20, x+2, y+2, fg, bg);
 	x += 48+4;
 
-    if (!uistat.agcmode) {
-      fg = uistat.mode == RFGAIN ? FG_ACTIVE : 0x07ff;
+	fg = uistat.mode == AGC ? FG_ACTIVE : FG_NORMAL;
+    if (uistat.mode == RFGAIN) {
+      fg = FG_ACTIVE;
+      draw_db(uistat.rfgain << 7, x, y, fg, bg);
+
+      // draw antenna icon by mode color of analog/digital
+      fg = 0x07ff;
       if (uistat.rfgain < 0 || uistat.rfgain >= 96)
         fg = 0x070f;
-      draw_db(uistat.rfgain << 7, x, y, fg, bg);
-      ili9341_drawfont(15, &NF20x24, x, y, fg, bg); // ANT Mark
+      ili9341_drawfont(15, &NF20x24, x, y, fg, bg); 
     }
 }
 
@@ -1280,7 +1283,8 @@ draw_power(void)
 {
   int x = 184;
   int y = 48;
-  if (uistat.agcmode != 0) {
+  // draw power value not only ui mode is at RFGAIN
+  if (uistat.mode != RFGAIN) {
     draw_dbm(measured_power_dbm, x, y, 0xffff, 0x0000);
   }
 }

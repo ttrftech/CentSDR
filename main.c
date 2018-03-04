@@ -367,7 +367,10 @@ static void
 measure_power_dbm(void)
 {
   extern int log2_q31(int32_t x);
-  int agcgain = tlv320aic3204_get_left_agc_gain();  
+  int agcgain = uistat.rfgain;
+  if (uistat.agcmode != AGC_MANUAL)
+    agcgain = tlv320aic3204_get_left_agc_gain();
+  
   int dbm =                    // fixed point 8.8 format
     6 * log2_q31(stat.rms[0])  // 6dB/bit
     - (agcgain << 7);          // 0.5dB/agcgain
