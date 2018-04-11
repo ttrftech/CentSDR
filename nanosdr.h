@@ -97,11 +97,15 @@ void fm_demod_stereo(int16_t *src, int16_t *dst, size_t len);
 
 void dsp_init(void);
 
+#define FS 48000
 #define AM_FREQ_OFFSET 10000
 #define SSB_FREQ_OFFSET 1300
+#define PHASESTEP(freq) (65536L * freq / FS)
 
 extern int32_t center_frequency;
 extern int16_t mode_freq_offset;
+extern int16_t mode_freqoffset_phasestep;
+extern int16_t cw_tone_phasestep;
 
 typedef struct {
   int16_t *buffer;
@@ -236,7 +240,8 @@ typedef struct {
 	int8_t digit; /* 0~5 */
     int freq_offset;
     enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
-    enum { WATERFALL, WAVEFORM, WAVEFORM_MAG, WFDISP_MODE_MAX } wfdispmode;
+    enum { WATERFALL, WAVEFORM, WAVEFORM_MAG, WAVEFORM_MAG2, WFDISP_MODE_MAX } wfdispmode;
+    int16_t cw_tone_freq;
 } uistat_t;
 
 extern uistat_t uistat;

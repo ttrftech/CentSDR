@@ -125,6 +125,8 @@ const char *agcmode_table[] = {
 
 signal_process_func_t signal_process = am_demod;
 int16_t mode_freq_offset = AM_FREQ_OFFSET;
+int16_t mode_freqoffset_phasestep;
+int16_t cw_tone_phasestep = PHASESTEP(800);
 int32_t center_frequency;
 
 // restored from/into flash memory
@@ -144,7 +146,8 @@ config_t config = {
 	.volume = 0,
 	.rfgain = 40, // 0 ~ 95
 	//.agcmode = AGC_MANUAL,
-    .agcmode = AGC_MID
+    .agcmode = AGC_MID,
+    .cw_tone_freq = 800
   },
   .channels = {
     /*    freq, modulation */
@@ -187,9 +190,14 @@ void set_modulation(modulation_t mod)
 {
   if (mod >= MOD_MAX)
     return;
+
   set_fs(mod_table[mod].fs);
   signal_process = mod_table[mod].demod_func;
+
   mode_freq_offset = mod_table[mod].freq_offset;
+  mode_freqoffset_phasestep = PHASESTEP(mode_freq_offset);
+  cw_tone_phasestep = PHASESTEP(uistat.cw_tone_freq);
+  
   uistat.modulation = mod;
   disp_update();
 }
@@ -266,10 +274,6 @@ static const I2SConfig i2sconfig = {
   0, // i2scfgr
   2 // i2spr
 };
-
-
-
-#define FS 48000
 
 static void tone_generate(int freq)
 {
@@ -630,6 +634,25 @@ static void cmd_mode(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
+static void cmd_cwtone(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int freq = 0;
+    if (argc == 0) {
+        chprintf(chp, "%d\r\n", uistat.cw_tone_freq);
+        return;
+    }
+
+    if (argc == 1)
+        freq = atoi(argv[0]);
+
+    if (freq == 0) {
+        chprintf(chp, "usage: cwtone {audio frequency(Hz)}\r\n");
+        return;
+    }
+    uistat.cw_tone_freq = freq;
+    cw_tone_phasestep = PHASESTEP(freq);
+}
+
 static void cmd_fs(BaseSequentialStream *chp, int argc, char *argv[])
 {
   int fs = 0;
@@ -778,6 +801,7 @@ static const ShellCommand commands[] =
     { "dac", cmd_dac },
     { "uitest", cmd_uitest },
     { "tone", cmd_tone },
+    { "cwtone", cmd_cwtone },
     { "data", cmd_data },
     { "stat", cmd_stat },
     { "gain", cmd_gain },
