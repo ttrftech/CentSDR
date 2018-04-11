@@ -283,7 +283,7 @@ cos_sin(uint16_t phase)
 
 uint16_t nco1_phase = 0;
 uint16_t nco2_phase = 0;
-#define SSB_NCO_PHASESTEP (65536L*SSB_FREQ_OFFSET/48000)
+#define SSB_NCO_PHASESTEP PHASESTEP(SSB_FREQ_OFFSET)
 
 
 // Bi-Quad IIR Filter state
@@ -383,8 +383,6 @@ void
 am_demod(int16_t *src, int16_t *dst, size_t len)
 #if defined(AM_FREQ_OFFSET) && AM_FREQ_OFFSET
 {
-#define PHASESTEP 65536L*AM_FREQ_OFFSET/48000
-
 	q15_t *bufi = buffer[0];
 	q15_t *bufq = buffer[1];
     int32_t *s = __SIMD32(src);
@@ -395,7 +393,7 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 
     for (i = 0; i < len/2; i++) {
         uint32_t cossin = cos_sin(nco1_phase);
-        nco1_phase -= PHASESTEP;
+        nco1_phase -= mode_freqoffset_phasestep;
 		uint32_t iq = *s++;
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
@@ -446,6 +444,7 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
 }
 #endif
 
+
 void
 lsb_demod(int16_t *src, int16_t *dst, size_t len)
 {
@@ -458,14 +457,10 @@ usb_demod(int16_t *src, int16_t *dst, size_t len)
   ssb_demod(src, dst, len, SSB_NCO_PHASESTEP);
 }
 
-
-int16_t cw_phasestep1 = 65536L*10000/48000;;
-int16_t cw_phasestep2 = 65536L*400/48000;
-
 void
 cw_demod(int16_t *src, int16_t *dst, size_t len)
 {
-	q15_t *bufi = buffer[0];
+    q15_t *bufi = buffer[0];
 	q15_t *bufq = buffer[1];
     int32_t *s = __SIMD32(src);
     int32_t *d = __SIMD32(dst);
@@ -476,7 +471,7 @@ cw_demod(int16_t *src, int16_t *dst, size_t len)
     // shift frequency
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco1_phase);
-		nco1_phase -= cw_phasestep1;
+		nco1_phase -= mode_freqoffset_phasestep;
 		uint32_t iq = *s++;
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
@@ -489,12 +484,12 @@ cw_demod(int16_t *src, int16_t *dst, size_t len)
 
     disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
 
-    // shift frequency inverse
+    // shift frequency for cw tone
 	bufi = buffer2[0];
 	bufq = buffer2[1];
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco2_phase);
-		nco2_phase -= cw_phasestep2;
+		nco2_phase -= cw_tone_phasestep;
 		uint32_t iq = __PKHBT(*bufi++, *bufq++, 16);
 		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
         *d++ = __PKHBT(r, r, 16);

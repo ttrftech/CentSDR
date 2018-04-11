@@ -863,7 +863,7 @@ static int mag_shift = 0;
 static inline int
 v2ypos(q31_t v)
 {
-  v >>= 22 - mag_shift;
+  v >>= 24 - mag_shift;
   v += HEIGHT/2;
   if (v < 0) v = 0;
   if (v >= HEIGHT) v = HEIGHT-1;
@@ -897,7 +897,9 @@ draw_waveform(void)
     if (uistat.wfdispmode == WATERFALL)
       return;
 
-    if (uistat.wfdispmode == WAVEFORM_MAG)
+    if (uistat.wfdispmode == WAVEFORM_MAG2)
+      mag_shift = 6;
+    else if (uistat.wfdispmode == WAVEFORM_MAG)
       mag_shift = 3;
     else
       mag_shift = 0;

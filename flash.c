@@ -81,6 +81,7 @@ checksum(const void *start, size_t len)
 
 // last page of flash memory. assume STM32F303CBT6 flash 128k Device
 const uint32_t save_config_area = 0x0801f800;
+const uint32_t save_config_prop_area_size = 0x800;
 
 int
 config_save(void)
@@ -122,8 +123,6 @@ config_recall(void)
   memcpy(dst, src, sizeof(config_t));
   return 0;
 }
-
-const uint32_t save_config_prop_area_size = 0x800;
 
 void
 clear_all_config_prop_data(void)
