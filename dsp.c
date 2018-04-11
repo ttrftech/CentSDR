@@ -329,8 +329,22 @@ q15_t bq_coeffs_150hz[] = {
 arm_biquad_casd_df1_inst_q15 bq_cw_i = { 3, bq_i_state, bq_coeffs_150hz, 1};
 arm_biquad_casd_df1_inst_q15 bq_cw_q = { 3, bq_q_state, bq_coeffs_150hz, 1};
 
+typedef struct {
+  int16_t phasestep1;
+  int16_t phasestep2;
+  arm_biquad_casd_df1_inst_q15 *bq_i;
+  arm_biquad_casd_df1_inst_q15 *bq_q;
+} weaver_demod_conf_t;
+
+const weaver_demod_conf_t usb_demod_conf = {
+  SSB_NCO_PHASESTEP, SSB_NCO_PHASESTEP, &bq_i, &bq_q
+};
+const weaver_demod_conf_t lsb_demod_conf = {
+  -SSB_NCO_PHASESTEP, -SSB_NCO_PHASESTEP, &bq_i, &bq_q
+};
+
 void
-ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
+demod_weaver(int16_t *src, int16_t *dst, size_t len, const weaver_demod_conf_t *dc)
 {
 	q15_t *bufi = buffer[0];
 	q15_t *bufq = buffer[1];
@@ -343,7 +357,7 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     // shift frequency
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco1_phase);
-		nco1_phase -= phasestep;
+		nco1_phase -= dc->phasestep1;
 		uint32_t iq = *s++;
 		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
 		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
@@ -351,8 +365,8 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
     disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
 
     // apply low pass filter
-	arm_biquad_cascade_df1_q15(&bq_i, buffer[0], buffer2[0], len/2);
-	arm_biquad_cascade_df1_q15(&bq_q, buffer[1], buffer2[1], len/2);
+	arm_biquad_cascade_df1_q15(dc->bq_i, buffer[0], buffer2[0], len/2);
+	arm_biquad_cascade_df1_q15(dc->bq_q, buffer[1], buffer2[1], len/2);
 
     disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
 
@@ -361,7 +375,7 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 	bufq = buffer2[1];
     for (i = 0; i < len/2; i++) {
 		uint32_t cossin = cos_sin(nco2_phase);
-		nco2_phase += phasestep;
+		nco2_phase += dc->phasestep2;
 		uint32_t iq = __PKHBT(*bufi++, *bufq++, 16);
 		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
         *d++ = __PKHBT(r, r, 16);
@@ -369,6 +383,30 @@ ssb_demod(int16_t *src, int16_t *dst, size_t len, int phasestep)
 
     disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
 }
+
+void
+lsb_demod(int16_t *src, int16_t *dst, size_t len)
+{
+  demod_weaver(src, dst, len, &lsb_demod_conf);
+}
+
+void
+usb_demod(int16_t *src, int16_t *dst, size_t len)
+{
+  demod_weaver(src, dst, len, &usb_demod_conf);
+}
+
+void
+cw_demod(int16_t *src, int16_t *dst, size_t len)
+{
+  weaver_demod_conf_t dc = {
+    mode_freqoffset_phasestep, cw_tone_phasestep, &bq_cw_i, &bq_cw_q
+  };
+  
+  demod_weaver(src, dst, len, &dc);
+}
+
+
 
 __attribute__ ( ( always_inline ) ) __STATIC_INLINE
 float _VSQRTF(float op1) {
@@ -443,63 +481,6 @@ am_demod(int16_t *src, int16_t *dst, size_t len)
   }
 }
 #endif
-
-
-void
-lsb_demod(int16_t *src, int16_t *dst, size_t len)
-{
-  ssb_demod(src, dst, len, -SSB_NCO_PHASESTEP);
-}
-
-void
-usb_demod(int16_t *src, int16_t *dst, size_t len)
-{
-  ssb_demod(src, dst, len, SSB_NCO_PHASESTEP);
-}
-
-void
-cw_demod(int16_t *src, int16_t *dst, size_t len)
-{
-    q15_t *bufi = buffer[0];
-	q15_t *bufq = buffer[1];
-    int32_t *s = __SIMD32(src);
-    int32_t *d = __SIMD32(dst);
-    uint32_t i;
-
-    disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
-
-    // shift frequency
-    for (i = 0; i < len/2; i++) {
-		uint32_t cossin = cos_sin(nco1_phase);
-		nco1_phase -= mode_freqoffset_phasestep;
-		uint32_t iq = *s++;
-		*bufi++ = __SMLSDX(iq, cossin, 0) >> (15-0);
-		*bufq++ = __SMLAD(iq, cossin, 0) >> (15-0);
-	}
-    disp_fetch_samples(B_IF1, BT_IQ, buffer[0], buffer[1], len/2);
-
-    // apply low pass filter
-	arm_biquad_cascade_df1_q15(&bq_cw_i, buffer[0], buffer2[0], len/2);
-	arm_biquad_cascade_df1_q15(&bq_cw_q, buffer[1], buffer2[1], len/2);
-
-    disp_fetch_samples(B_IF2, BT_IQ, buffer2[0], buffer2[1], len/2);
-
-    // shift frequency for cw tone
-	bufi = buffer2[0];
-	bufq = buffer2[1];
-    for (i = 0; i < len/2; i++) {
-		uint32_t cossin = cos_sin(nco2_phase);
-		nco2_phase -= cw_tone_phasestep;
-		uint32_t iq = __PKHBT(*bufi++, *bufq++, 16);
-		uint32_t r = __SMLAD(iq, cossin, 0) >> (15-0);
-        *d++ = __PKHBT(r, r, 16);
-	}
-
-    disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
-}
-
-
-
 
 
 

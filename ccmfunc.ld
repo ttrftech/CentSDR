@@ -4,6 +4,7 @@
         __ccmfunc_init_text__ = LOADADDR(.ccmfunc);
         __ccmfunc_init__ = .;
 		*dsp.o(.text.*)
+		*dsp.o(.rodata.arctantbl)
 		*arm_biquad_cascade_df1_q15.o(.text.*)
 		*arm_cfft_radix4_q31.o(.text.*)
 		*arm_bitreversal.o(.text.*)
