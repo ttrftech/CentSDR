@@ -223,29 +223,29 @@ void tlv320aic3204_set_impedance(int imp)
 }
 
 
-void tlv320aic3204_set_gain(int gain)
+void tlv320aic3204_set_gain(int g1, int g2)
 {
-    if (gain < 0)
-        gain = 0;
-    if (gain > 95)
-        gain = 95;
+    if (g1 < 0) g1 = 0;
+    if (g2 < 0) g2 = 0;
+    if (g1 > 95) g1 = 95;
+    if (g2 > 95) g2 = 95;
 
     tlv320aic3204_write(0x00, 0x01); /* Select Page 1 */
-    tlv320aic3204_write(0x3b, gain); /* Unmute Left MICPGA, set gain */
-    tlv320aic3204_write(0x3c, gain); /* Unmute Right MICPGA, set gain */
+    tlv320aic3204_write(0x3b, g1); /* Unmute Left MICPGA, set gain */
+    tlv320aic3204_write(0x3c, g2); /* Unmute Right MICPGA, set gain */
     tlv320aic3204_write(0x00, 0x00); /* Select Page 0 */
 }
 
-void tlv320aic3204_set_digital_gain(int gain)
+void tlv320aic3204_set_digital_gain(int g1, int g2)
 {
-    if (gain < -24)
-        gain = -24;
-    if (gain > 40)
-        gain = 40;
+    if (g1 < -24) g1 = -24;
+    if (g1 > 40) g1 = 40;
+    if (g2 < -24) g2 = -24;
+    if (g2 > 40) g2 = 40;
 
     tlv320aic3204_write(0x00, 0x00); /* Select Page 0 */
-    tlv320aic3204_write(0x53, gain & 0x7f); /* Left ADC Channel Volume */
-    tlv320aic3204_write(0x54, gain & 0x7f); /* Right ADC Channel Volume */
+    tlv320aic3204_write(0x53, g1 & 0x7f); /* Left ADC Channel Volume */
+    tlv320aic3204_write(0x54, g2 & 0x7f); /* Right ADC Channel Volume */
 }
 
 void tlv320aic3204_set_volume(int gain)
@@ -385,6 +385,11 @@ int8_t tlv320aic3204_get_right_agc_gain(void)
 void tlv320aic3204_set_adc_phase_adjust(int8_t adjust)
 {
   tlv320aic3204_write(0x55, adjust);
+}
+
+void tlv320aic3204_set_adc_fine_gain_adjust(int8_t g1, int8_t g2)
+{
+  tlv320aic3204_write(0x52, (g1 & 0x7) << 4 | (g2 & 0x7));
 }
 
 void tlv320aic3204_beep(void)

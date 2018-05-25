@@ -41,8 +41,8 @@ typedef struct {
 } tlv320aic3204_agc_config_t;
 
 extern void tlv320aic3204_init(void);
-extern void tlv320aic3204_set_gain(int gain);
-extern void tlv320aic3204_set_digital_gain(int gain);
+extern void tlv320aic3204_set_gain(int g1, int g2);
+extern void tlv320aic3204_set_digital_gain(int g1, int g2);
 extern void tlv320aic3204_set_volume(int gain);
 extern void tlv320aic3204_agc_config(tlv320aic3204_agc_config_t *conf);
 extern void tlv320aic3204_set_fs(int fs);
@@ -55,6 +55,7 @@ extern int tlv320aic3204_get_sticky_flag_register(void);
 extern int8_t tlv320aic3204_get_left_agc_gain(void);
 extern int8_t tlv320aic3204_get_right_agc_gain(void);
 extern void tlv320aic3204_set_adc_phase_adjust(int8_t adjust);
+extern void tlv320aic3204_set_adc_fine_gain_adjust(int8_t g1, int8_t g2);
 
 extern void tlv320aic3204_beep(void);
 

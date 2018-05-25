@@ -465,18 +465,22 @@ static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
-    if (argc != 1 && argc != 2) {
-        chprintf(chp, "usage: gain {pga gain(0-95)} {digital gain(-24-40)}\r\n");
+    if (argc != 1 && argc != 2 && argc != 3) {
+        chprintf(chp, "usage: gain {pga gain(0-95)} [digital gain(-24-40)] [adjust]\r\n");
         return;
     }
 
     gain = atoi(argv[0]);
-    tlv320aic3204_set_gain(gain);
+    tlv320aic3204_set_gain(gain, gain);
     uistat.rfgain = gain;
     
-    if (argc == 2) {
+    if (argc >= 2) {
+      int adjust = 0;
       gain = atoi(argv[1]);
-      tlv320aic3204_set_digital_gain(gain);
+      if (argc == 3) {
+        adjust = atoi(argv[2]);
+      }
+      tlv320aic3204_set_digital_gain(gain, gain + adjust);
       uistat.rfgain += gain;
     }
 
@@ -493,6 +497,20 @@ static void cmd_phase(BaseSequentialStream *chp, int argc, char *argv[])
 
     value = atoi(argv[0]);
     tlv320aic3204_set_adc_phase_adjust(value);
+}
+
+static void cmd_finegain(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int g1 = 0, g2 = 0;
+    if (argc != 1 && argc != 2) {
+        chprintf(chp, "usage: gainadjust {gain1 gain2} (0 - -4)\r\n");
+        return;
+    }
+    g1 = atoi(argv[0]);
+    if (argc == 2) {
+      g2 = atoi(argv[1]);
+    }
+    tlv320aic3204_set_adc_fine_gain_adjust(g1, g2);
 }
 
 static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
@@ -818,6 +836,7 @@ static const ShellCommand commands[] =
     { "save", cmd_save },
     { "clearconfig", cmd_clearconfig },
     { "phase", cmd_phase },
+    { "finegain", cmd_finegain },
     { NULL, NULL }
 };
 

@@ -121,8 +121,8 @@ set_gain(int gain)
     gain = 0;
   }
 
-  tlv320aic3204_set_gain(gain);
-  tlv320aic3204_set_digital_gain(dgain);
+  tlv320aic3204_set_gain(gain, gain);
+  tlv320aic3204_set_digital_gain(dgain, dgain);
 }
 
 
