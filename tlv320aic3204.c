@@ -367,6 +367,50 @@ void tlv320aic3204_config_adc_filter(int enable)
   tlv320aic3204_write(0x00, 0x00); /* Back to page 0 */
 }
 
+void tlv320aic3204_config_adc_filter2(double adj)
+{
+  int reg;
+  int32_t b0 = 0x7ffada00;
+  int32_t b1 = 0x80052600;
+  int32_t a1 = 0x7ff5b500;
+
+  tlv320aic3204_write(0x00, 0x08);
+  reg = 24;
+  tlv320aic3204_write(reg++, b0 >> 24);
+  tlv320aic3204_write(reg++, b0 >> 16);
+  tlv320aic3204_write(reg++, b0 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, b1 >> 24);
+  tlv320aic3204_write(reg++, b1 >> 16);
+  tlv320aic3204_write(reg++, b1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, a1 >> 24);
+  tlv320aic3204_write(reg++, a1 >> 16);
+  tlv320aic3204_write(reg++, a1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+
+  b0 = (int32_t)(b0 * adj);
+  b1 = (int32_t)(b1 * adj);
+  tlv320aic3204_write(0x00, 0x09);
+  reg = 32;
+  tlv320aic3204_write(reg++, b0 >> 24);
+  tlv320aic3204_write(reg++, b0 >> 16);
+  tlv320aic3204_write(reg++, b0 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, b1 >> 24);
+  tlv320aic3204_write(reg++, b1 >> 16);
+  tlv320aic3204_write(reg++, b1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, a1 >> 24);
+  tlv320aic3204_write(reg++, a1 >> 16);
+  tlv320aic3204_write(reg++, a1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+
+  tlv320aic3204_write(0x00, 0x08); /* Select Page 8 */
+  tlv320aic3204_write(0x01, 0x05); /* ADC Coefficient Buffers will be switched at next frame boundary */
+  tlv320aic3204_write(0x00, 0x00); /* Back to page 0 */
+}
+
 int tlv320aic3204_get_sticky_flag_register(void)
 {
     return tlv320aic3204_read(0x2a); /* Sticky Flag Register */

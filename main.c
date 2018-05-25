@@ -513,6 +513,16 @@ static void cmd_finegain(BaseSequentialStream *chp, int argc, char *argv[])
     tlv320aic3204_set_adc_fine_gain_adjust(g1, g2);
 }
 
+static void cmd_iqbal(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    if (argc != 1) {
+        chprintf(chp, "usage: iqbal {coeff}\r\n");
+        return;
+    }
+    double value = -1.0 - (double)atoi(argv[0]) / 10000.0;
+    tlv320aic3204_config_adc_filter2(value);
+}
+
 static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
@@ -825,6 +835,7 @@ static const ShellCommand commands[] =
     { "gain", cmd_gain },
     { "volume", cmd_volume },
     { "agc", cmd_agc },
+    { "iqbal", cmd_iqbal },
     { "dcreject", cmd_dcreject },
     { "imp", cmd_impedance },
     { "mode", cmd_mode },

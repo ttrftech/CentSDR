@@ -49,6 +49,7 @@ extern void tlv320aic3204_set_fs(int fs);
 extern void tlv320aic3204_stop(void);
 
 extern void tlv320aic3204_config_adc_filter(int enable);
+extern void tlv320aic3204_config_adc_filter2(double iqbal);
 extern void tlv320aic3204_set_impedance(int imp);
 
 extern int tlv320aic3204_get_sticky_flag_register(void);
