@@ -276,4 +276,12 @@ int config_recall(void);
 void clear_all_config_prop_data(void);
 
 
+#if 0
+#define FREQ_OFFSET_SIGN -1
+#define BUTTON_POLARITY 0x0000
+#else
+#define FREQ_OFFSET_SIGN 1
+#define BUTTON_POLARITY 0x0001
+#endif
+
 /*EOF*/

@@ -311,6 +311,25 @@ const uint8_t adc_iir_filter_dcreject[] = {
   0 /* sentinel */
 };
 
+// implement HPF of first order IIR
+const uint8_t adc_iir_filter_dcreject2[] = {
+  /* len, page, reg, data.... */
+  /* left channel C4 - C6 */
+  12, 8, 24, 
+  /* Pg8 Reg24-35 */
+  0x7f, 0xfa, 0xda, 0x00,
+  0x80, 0x05, 0x26, 0x00,
+  0x7f, 0xf5, 0xb5, 0x00,
+    
+  /* right channel C36 - C38 */
+  12, 9, 32, 
+  /* Pg9 Reg 32-43 */
+  0x80, 0x06, 0x37, 0x00,
+  0x7f, 0xfa, 0xeb, 0x00,
+  0x7f, 0xf5, 0xb5, 0x00,
+  0 /* sentinel */
+};
+
 const uint8_t adc_iir_filter_default[] = {
   /* len, page, reg, data.... */
   /* left channel C4 - C6 */
@@ -333,7 +352,7 @@ void tlv320aic3204_config_adc_filter(int enable)
 {
   const uint8_t *p = adc_iir_filter_default;
   if (enable)
-    p = adc_iir_filter_dcreject;
+    p = adc_iir_filter_dcreject2;
   
   while (*p != 0) {
     uint8_t len = *p++;

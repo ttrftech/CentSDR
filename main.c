@@ -942,7 +942,6 @@ int __attribute__((noreturn)) main(void)
    * Shell manager initialization.
    */
   shellInit();
-  tlv320aic3204_config_adc_filter(1); // enable DC reject
 
   /*
    * Creates the blinker thread.
@@ -952,6 +951,8 @@ int __attribute__((noreturn)) main(void)
 #if 1
   ui_init();
 #endif
+
+  tlv320aic3204_config_adc_filter(1); // enable DC reject
   
   /*
    * Creates the button thread.

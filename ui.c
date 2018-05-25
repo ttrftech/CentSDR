@@ -56,7 +56,7 @@ static uint32_t last_button_down_ticks;
 int
 read_buttons(void)
 {
-  return (palReadPort(GPIOA) & 0x1);
+  return (palReadPort(GPIOA) & 0x1) ^ BUTTON_POLARITY;
 }
 
 void
