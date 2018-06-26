@@ -137,7 +137,6 @@ static const uint8_t conf_data_routing[] = {
   2, 0x02, 0x01, /* Enable Master Analog Power Control */
   2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
   2, 0x14, 0x25, /* HP soft stepping settings for optimal pop performance at power up Rpop used is 6k with N = 6 and soft step = 20usec. This should work with 47uF coupling capacitor. Can try N=5,6 or 7 time constants as well. Trade-off delay vs “pop” sound. */
-  2, 0x0a, 0x00, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to Input Common Mode */
   2, 0x0a, 0x33, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to 1.65V */
   2, 0x0c, 0x08, /* Route Left DAC to HPL */
   2, 0x0d, 0x08, /* Route Right DAC to HPR */
@@ -223,29 +222,29 @@ void tlv320aic3204_set_impedance(int imp)
 }
 
 
-void tlv320aic3204_set_gain(int gain)
+void tlv320aic3204_set_gain(int g1, int g2)
 {
-    if (gain < 0)
-        gain = 0;
-    if (gain > 95)
-        gain = 95;
+    if (g1 < 0) g1 = 0;
+    if (g2 < 0) g2 = 0;
+    if (g1 > 95) g1 = 95;
+    if (g2 > 95) g2 = 95;
 
     tlv320aic3204_write(0x00, 0x01); /* Select Page 1 */
-    tlv320aic3204_write(0x3b, gain); /* Unmute Left MICPGA, set gain */
-    tlv320aic3204_write(0x3c, gain); /* Unmute Right MICPGA, set gain */
+    tlv320aic3204_write(0x3b, g1); /* Unmute Left MICPGA, set gain */
+    tlv320aic3204_write(0x3c, g2); /* Unmute Right MICPGA, set gain */
     tlv320aic3204_write(0x00, 0x00); /* Select Page 0 */
 }
 
-void tlv320aic3204_set_digital_gain(int gain)
+void tlv320aic3204_set_digital_gain(int g1, int g2)
 {
-    if (gain < -24)
-        gain = -24;
-    if (gain > 40)
-        gain = 40;
+    if (g1 < -24) g1 = -24;
+    if (g1 > 40) g1 = 40;
+    if (g2 < -24) g2 = -24;
+    if (g2 > 40) g2 = 40;
 
     tlv320aic3204_write(0x00, 0x00); /* Select Page 0 */
-    tlv320aic3204_write(0x53, gain & 0x7f); /* Left ADC Channel Volume */
-    tlv320aic3204_write(0x54, gain & 0x7f); /* Right ADC Channel Volume */
+    tlv320aic3204_write(0x53, g1 & 0x7f); /* Left ADC Channel Volume */
+    tlv320aic3204_write(0x54, g2 & 0x7f); /* Right ADC Channel Volume */
 }
 
 void tlv320aic3204_set_volume(int gain)
@@ -311,6 +310,25 @@ const uint8_t adc_iir_filter_dcreject[] = {
   0 /* sentinel */
 };
 
+// implement HPF of first order IIR
+const uint8_t adc_iir_filter_dcreject2[] = {
+  /* len, page, reg, data.... */
+  /* left channel C4 - C6 */
+  12, 8, 24, 
+  /* Pg8 Reg24-35 */
+  0x7f, 0xfa, 0xda, 0x00,
+  0x80, 0x05, 0x26, 0x00,
+  0x7f, 0xf5, 0xb5, 0x00,
+    
+  /* right channel C36 - C38 */
+  12, 9, 32, 
+  /* Pg9 Reg 32-43 */
+  0x80, 0x06, 0x37, 0x00,
+  0x7f, 0xfa, 0xeb, 0x00,
+  0x7f, 0xf5, 0xb5, 0x00,
+  0 /* sentinel */
+};
+
 const uint8_t adc_iir_filter_default[] = {
   /* len, page, reg, data.... */
   /* left channel C4 - C6 */
@@ -333,7 +351,7 @@ void tlv320aic3204_config_adc_filter(int enable)
 {
   const uint8_t *p = adc_iir_filter_default;
   if (enable)
-    p = adc_iir_filter_dcreject;
+    p = adc_iir_filter_dcreject2;
   
   while (*p != 0) {
     uint8_t len = *p++;
@@ -343,6 +361,50 @@ void tlv320aic3204_config_adc_filter(int enable)
     while (len-- > 0)
       tlv320aic3204_write(reg++, *p++);
   }
+  tlv320aic3204_write(0x00, 0x08); /* Select Page 8 */
+  tlv320aic3204_write(0x01, 0x05); /* ADC Coefficient Buffers will be switched at next frame boundary */
+  tlv320aic3204_write(0x00, 0x00); /* Back to page 0 */
+}
+
+void tlv320aic3204_config_adc_filter2(double adj)
+{
+  int reg;
+  int32_t b0 = 0x7ffada00;
+  int32_t b1 = 0x80052600;
+  int32_t a1 = 0x7ff5b500;
+
+  tlv320aic3204_write(0x00, 0x08);
+  reg = 24;
+  tlv320aic3204_write(reg++, b0 >> 24);
+  tlv320aic3204_write(reg++, b0 >> 16);
+  tlv320aic3204_write(reg++, b0 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, b1 >> 24);
+  tlv320aic3204_write(reg++, b1 >> 16);
+  tlv320aic3204_write(reg++, b1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, a1 >> 24);
+  tlv320aic3204_write(reg++, a1 >> 16);
+  tlv320aic3204_write(reg++, a1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+
+  b0 = (int32_t)(b0 * adj);
+  b1 = (int32_t)(b1 * adj);
+  tlv320aic3204_write(0x00, 0x09);
+  reg = 32;
+  tlv320aic3204_write(reg++, b0 >> 24);
+  tlv320aic3204_write(reg++, b0 >> 16);
+  tlv320aic3204_write(reg++, b0 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, b1 >> 24);
+  tlv320aic3204_write(reg++, b1 >> 16);
+  tlv320aic3204_write(reg++, b1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+  tlv320aic3204_write(reg++, a1 >> 24);
+  tlv320aic3204_write(reg++, a1 >> 16);
+  tlv320aic3204_write(reg++, a1 >> 8);
+  tlv320aic3204_write(reg++, 0);
+
   tlv320aic3204_write(0x00, 0x08); /* Select Page 8 */
   tlv320aic3204_write(0x01, 0x05); /* ADC Coefficient Buffers will be switched at next frame boundary */
   tlv320aic3204_write(0x00, 0x00); /* Back to page 0 */
@@ -366,6 +428,11 @@ int8_t tlv320aic3204_get_right_agc_gain(void)
 void tlv320aic3204_set_adc_phase_adjust(int8_t adjust)
 {
   tlv320aic3204_write(0x55, adjust);
+}
+
+void tlv320aic3204_set_adc_fine_gain_adjust(int8_t g1, int8_t g2)
+{
+  tlv320aic3204_write(0x52, (g1 & 0x7) << 4 | (g2 & 0x7));
 }
 
 void tlv320aic3204_beep(void)

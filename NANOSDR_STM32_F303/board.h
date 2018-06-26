@@ -44,6 +44,7 @@
 
 /* on-board */
 
+#define GPIOA_PUSH_BUTTON       0
 #define GPIOA_USART2_TX         2 
 #define GPIOA_USART2_RX         3 
 #define GPIOA_DAC1				4
@@ -58,6 +59,8 @@
 #define GPIOA_JTMS              13
 #define GPIOA_JTCK              14
 
+#define GPIOB_ENC_PHASEA        1
+#define GPIOB_ENC_PHASEB        2
 #define GPIOB_SPI3_SCK          3
 #define GPIOB_SPI3_MISO         4
 #define GPIOB_SPI3_MOSI         5
@@ -115,7 +118,7 @@
  * PA14 - SWCLK                     (alternate 0).
  */
 #define VAL_GPIOA_MODER             (PIN_MODE_INPUT(0U) |           \
-                                     PIN_MODE_INPUT(1U) |           \
+                                     PIN_MODE_OUTPUT(1U) |           \
                                      PIN_MODE_ALTERNATE(GPIOA_USART2_TX) |   \
                                      PIN_MODE_ALTERNATE(GPIOA_USART2_RX) |   \
                                      PIN_MODE_INPUT(4U) |           \
@@ -146,8 +149,8 @@
                                      PIN_OTYPE_PUSHPULL(GPIOA_JTMS) |      \
                                      PIN_OTYPE_PUSHPULL(GPIOA_JTCK) |      \
                                      PIN_OTYPE_PUSHPULL(15))
-#define VAL_GPIOA_OSPEEDR           (PIN_OSPEED_100M(0) |          \
-                                     PIN_OSPEED_100M(1) |          \
+#define VAL_GPIOA_OSPEEDR           (PIN_OSPEED_2M(0) |          \
+                                     PIN_OSPEED_2M(1) |          \
                                      PIN_OSPEED_50M(GPIOA_USART2_TX) |       \
                                      PIN_OSPEED_50M(GPIOA_USART2_RX) |       \
                                      PIN_OSPEED_100M(4) |          \
@@ -162,8 +165,8 @@
                                      PIN_OSPEED_100M(GPIOA_JTMS) |         \
                                      PIN_OSPEED_100M(GPIOA_JTCK) |         \
                                      PIN_OSPEED_100M(15))
-#define VAL_GPIOA_PUPDR             (PIN_PUPDR_PULLDOWN(0) |         \
-                                     PIN_PUPDR_PULLDOWN(1) |         \
+#define VAL_GPIOA_PUPDR             (PIN_PUPDR_PULLDOWN(0) |           \
+                                     PIN_PUPDR_FLOATING(1) |         \
                                      PIN_PUPDR_FLOATING(GPIOA_USART2_TX) |   \
                                      PIN_PUPDR_FLOATING(GPIOA_USART2_RX) |   \
                                      PIN_PUPDR_PULLUP(4) |         \
@@ -224,7 +227,7 @@
  * PB14 - I2S2_MISO                 (alternate 5).
  * PB15 - I2S2_MOSI                 (alternate 5).
  */
-#define VAL_GPIOB_MODER             (PIN_MODE_INPUT(0) |           \
+#define VAL_GPIOB_MODER             (PIN_MODE_OUTPUT(0) |          \
                                      PIN_MODE_INPUT(1) |           \
                                      PIN_MODE_INPUT(2) |           \
                                      PIN_MODE_ALTERNATE(GPIOB_SPI3_SCK) | \
@@ -256,7 +259,7 @@
                                      PIN_OTYPE_PUSHPULL(GPIOB_I2S2_BCLK) | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_I2S2_MISO) | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_I2S2_MOSI))
-#define VAL_GPIOB_OSPEEDR           (PIN_OSPEED_100M(0) |          \
+#define VAL_GPIOB_OSPEEDR           (PIN_OSPEED_2M(0) |          \
                                      PIN_OSPEED_100M(1) |          \
                                      PIN_OSPEED_100M(2) |          \
                                      PIN_OSPEED_100M(3) | \
@@ -272,10 +275,10 @@
                                      PIN_OSPEED_100M(GPIOB_I2S2_BCLK) | \
                                      PIN_OSPEED_100M(GPIOB_I2S2_MISO) | \
                                      PIN_OSPEED_100M(GPIOB_I2S2_MOSI))
-#define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLDOWN(0) |         \
+#define VAL_GPIOB_PUPDR             (PIN_PUPDR_FLOATING(0) |       \
                                      PIN_PUPDR_PULLDOWN(1) |         \
                                      PIN_PUPDR_PULLDOWN(2) |         \
-                                     PIN_PUPDR_PULLUP(3) | \
+                                     PIN_PUPDR_PULLUP(3) |         \
                                      PIN_PUPDR_PULLUP(4) |         \
                                      PIN_PUPDR_PULLUP(5) |         \
                                      PIN_PUPDR_PULLUP(6) |         \

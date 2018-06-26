@@ -14,7 +14,6 @@
 #include <stm32f303xc.h>
 
 
-
 static struct {
   int32_t rms[2];
   int16_t ave[2];
@@ -169,7 +168,9 @@ config_t config = {
     { 11330000, MOD_USB },
     { 13273000, MOD_USB },
     { 17904000, MOD_USB }
-  }
+  },
+  .button_polarity = 0x01,
+  .freq_inverse = -1
 };
 
 struct {
@@ -441,7 +442,6 @@ static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
 #endif
 }
 
-
 static void cmd_power(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -465,18 +465,22 @@ static void cmd_impedance(BaseSequentialStream *chp, int argc, char *argv[])
 static void cmd_gain(BaseSequentialStream *chp, int argc, char *argv[])
 {
     int gain;
-    if (argc != 1 && argc != 2) {
-        chprintf(chp, "usage: gain {pga gain(0-95)} {digital gain(-24-40)}\r\n");
+    if (argc != 1 && argc != 2 && argc != 3) {
+        chprintf(chp, "usage: gain {pga gain(0-95)} [digital gain(-24-40)] [adjust]\r\n");
         return;
     }
 
     gain = atoi(argv[0]);
-    tlv320aic3204_set_gain(gain);
+    tlv320aic3204_set_gain(gain, gain);
     uistat.rfgain = gain;
     
-    if (argc == 2) {
+    if (argc >= 2) {
+      int adjust = 0;
       gain = atoi(argv[1]);
-      tlv320aic3204_set_digital_gain(gain);
+      if (argc == 3) {
+        adjust = atoi(argv[2]);
+      }
+      tlv320aic3204_set_digital_gain(gain, gain + adjust);
       uistat.rfgain += gain;
     }
 
@@ -493,6 +497,30 @@ static void cmd_phase(BaseSequentialStream *chp, int argc, char *argv[])
 
     value = atoi(argv[0]);
     tlv320aic3204_set_adc_phase_adjust(value);
+}
+
+static void cmd_finegain(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    int g1 = 0, g2 = 0;
+    if (argc != 1 && argc != 2) {
+        chprintf(chp, "usage: gainadjust {gain1 gain2} (0 - -4)\r\n");
+        return;
+    }
+    g1 = atoi(argv[0]);
+    if (argc == 2) {
+      g2 = atoi(argv[1]);
+    }
+    tlv320aic3204_set_adc_fine_gain_adjust(g1, g2);
+}
+
+static void cmd_iqbal(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    if (argc != 1) {
+        chprintf(chp, "usage: iqbal {coeff}\r\n");
+        return;
+    }
+    double value = config.freq_inverse - (double)atoi(argv[0]) / 10000.0;
+    tlv320aic3204_config_adc_filter2(value);
 }
 
 static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
@@ -750,6 +778,28 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
+static void cmd_revision(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  if (argc == 0) {
+    chprintf(chp, "usage: revision {rev}\r\n");
+    return;
+  }
+  int rev = atoi(argv[0]);
+  switch (rev) {
+  case 0:
+    config.freq_inverse = 1;
+    config.button_polarity = 0x00;
+    break;
+  case 1:
+    config.freq_inverse = -1;
+    config.button_polarity = 0x01;
+    break;
+  default:
+    chprintf(chp, "unknown revision\r\n");
+    break;
+  }
+}
+
 static void cmd_save(BaseSequentialStream *chp, int argc, char *argv[])
 {
   (void)argc;
@@ -807,6 +857,7 @@ static const ShellCommand commands[] =
     { "gain", cmd_gain },
     { "volume", cmd_volume },
     { "agc", cmd_agc },
+    { "iqbal", cmd_iqbal },
     { "dcreject", cmd_dcreject },
     { "imp", cmd_impedance },
     { "mode", cmd_mode },
@@ -815,9 +866,11 @@ static const ShellCommand commands[] =
     { "show", cmd_show },
     { "power", cmd_power },
     { "channel", cmd_channel },
+    { "revision", cmd_revision },
     { "save", cmd_save },
     { "clearconfig", cmd_clearconfig },
     { "phase", cmd_phase },
+    { "finegain", cmd_finegain },
     { NULL, NULL }
 };
 
@@ -876,6 +929,12 @@ int __attribute__((noreturn)) main(void)
   /* restore config */
   config_recall();
 
+  if (config.button_polarity != 0) {
+    // pullup for revision 1 board
+    palSetGroupMode(GPIOA, 1, 0, PAL_MODE_INPUT_PULLUP);
+    palSetGroupMode(GPIOB, 6, 0, PAL_MODE_INPUT_PULLUP);
+  }
+  
   // copy uistat from uistat
   uistat = config.uistat;
 
@@ -917,6 +976,7 @@ int __attribute__((noreturn)) main(void)
    * I2S Initialize
    */
   tlv320aic3204_init();
+
   i2sInit();
   i2sObjectInit(&I2SD2);
   i2sStart(&I2SD2, &i2sconfig);
@@ -942,7 +1002,6 @@ int __attribute__((noreturn)) main(void)
    * Shell manager initialization.
    */
   shellInit();
-  tlv320aic3204_config_adc_filter(1); // enable DC reject
 
   /*
    * Creates the blinker thread.
@@ -952,7 +1011,10 @@ int __attribute__((noreturn)) main(void)
 #if 1
   ui_init();
 #endif
-  
+
+  tlv320aic3204_config_adc_filter2(config.freq_inverse /* + 0.129 */); // enable DC reject
+  //tlv320aic3204_config_adc_filter(1); // enable DC reject
+
   /*
    * Creates the button thread.
    */

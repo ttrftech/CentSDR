@@ -56,7 +56,7 @@ static uint32_t last_button_down_ticks;
 int
 read_buttons(void)
 {
-  return (palReadPort(GPIOA) & 0x1);
+  return (palReadPort(GPIOA) & 0x1) ^ config.button_polarity;
 }
 
 void
@@ -121,8 +121,8 @@ set_gain(int gain)
     gain = 0;
   }
 
-  tlv320aic3204_set_gain(gain);
-  tlv320aic3204_set_digital_gain(dgain);
+  tlv320aic3204_set_gain(gain, gain);
+  tlv320aic3204_set_digital_gain(dgain, dgain);
 }
 
 
