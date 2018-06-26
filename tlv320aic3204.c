@@ -137,7 +137,6 @@ static const uint8_t conf_data_routing[] = {
   2, 0x02, 0x01, /* Enable Master Analog Power Control */
   2, 0x7b, 0x01, /* Set the REF charging time to 40ms */
   2, 0x14, 0x25, /* HP soft stepping settings for optimal pop performance at power up Rpop used is 6k with N = 6 and soft step = 20usec. This should work with 47uF coupling capacitor. Can try N=5,6 or 7 time constants as well. Trade-off delay vs “pop” sound. */
-  2, 0x0a, 0x00, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to Input Common Mode */
   2, 0x0a, 0x33, /* Set the Input Common Mode to 0.9V and Output Common Mode for Headphone to 1.65V */
   2, 0x0c, 0x08, /* Route Left DAC to HPL */
   2, 0x0d, 0x08, /* Route Right DAC to HPR */
