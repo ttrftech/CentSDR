@@ -562,7 +562,7 @@ atan_2iq(uint32_t iq0, uint32_t iq1)
   }
   if (neg)
     ang = -ang;
-  return __SSAT(ang/128, 16);
+  return __SSAT(ang/32, 16);
 }
 
 void
@@ -774,8 +774,8 @@ fm_adj_filter(int16_t *src, size_t len)
         acc_q = __SMLAD(k12, q12, acc_q);
         acc_q = __SMLADX(k12, q0_, acc_q);
 #if 1
-        acc_i = __SSAT(acc_i / 8192, 16);
-        acc_q = __SSAT(acc_q / 8192, 16);
+        acc_i = __SSAT(acc_i >>14, 16);
+        acc_q = __SSAT(acc_q >>14, 16);
         *s++ = __PKHBT(acc_i, acc_q, 16);
 #else
         *s++ = __PKHTB(acc_q, acc_i, 16);
