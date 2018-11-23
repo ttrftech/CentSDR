@@ -325,3 +325,14 @@ ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, uint1
     x += font->width;
   }
 }
+
+void
+ili9341_set_direction(int rot180)
+{
+  char value = 0x28; // landscape
+  if (rot180) {
+    value |= 0xc0; // reverse X and Y axis
+  }
+
+  send_command(0x36, 1, &value);
+}
