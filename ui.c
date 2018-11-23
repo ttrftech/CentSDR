@@ -253,6 +253,9 @@ ui_process(void)
       uistat.mode++;
       if (uistat.agcmode != 0 && uistat.mode == RFGAIN)
         uistat.mode++;
+      // skip CWTONE, IQBAL on click
+      if (uistat.mode == AGC_MAXGAIN)
+        uistat.mode = SPDISP;
       uistat.mode %= MODE_MAX;
       disp_update();
     } else if (status & EVT_BUTTON_DOWN_LONG) {
@@ -323,6 +326,15 @@ ui_process(void)
           }
           set_modulation(uistat.modulation);
           update_frequency();
+        } else if (uistat.mode == CWTONE) {
+          uistat.cw_tone_freq = minmax(uistat.cw_tone_freq + tick, -2000, 2000);
+          update_cwtone();
+        } else if (uistat.mode == IQBAL) {
+          uistat.iqbal = minmax(uistat.iqbal + tick * 10, -4000, 4000);
+          update_iqbal();
+        } else if (uistat.mode == AGC_MAXGAIN) {
+          config.agc.maximum_gain = minmax(config.agc.maximum_gain + tick, 0, 128);
+          update_agc();
         } else if (uistat.mode == SPDISP) {
           uistat.spdispmode = minmax(uistat.spdispmode + tick, 0, SPDISP_MODE_MAX);
         } else if (uistat.mode == WFDISP) {
