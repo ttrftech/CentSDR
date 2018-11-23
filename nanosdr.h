@@ -190,6 +190,7 @@ void ili9341_drawchar_5x7(uint8_t ch, int x, int y, uint16_t fg, uint16_t bg);
 void ili9341_drawstring_5x7(const char *str, int x, int y, uint16_t fg, uint16_t bg);
 void ili9341_drawfont(uint8_t ch, const font_t *font, int x, int y, uint16_t fg, uint16_t bg);
 void ili9341_drawfont_string(const char *str, const font_t *font, int x, int y, uint16_t fg, uint16_t bg);
+void ili9341_set_direction(int rot180);
 
 
 /*
@@ -269,6 +270,7 @@ typedef struct {
   uistat_t uistat;
   int8_t freq_inverse;
   uint8_t button_polarity;
+  int8_t lcd_rotation;
   int32_t checksum;
 } config_t;
 

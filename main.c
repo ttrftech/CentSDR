@@ -170,7 +170,8 @@ config_t config = {
     { 17904000, MOD_USB }
   },
   .button_polarity = 0x01,
-  .freq_inverse = -1
+  .freq_inverse = -1,
+  .lcd_rotation = 0
 };
 
 struct {
@@ -863,6 +864,18 @@ static void cmd_uitest(BaseSequentialStream *chp, int argc, char *argv[])
   }
 }
 
+static void cmd_lcd(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  if (argc != 1) {
+    chprintf(chp, "usage: lcd {rotate 180}\r\n");
+    return;
+  }
+  int rot = atoi(argv[0]);
+  ili9341_set_direction(rot);
+  config.lcd_rotation = rot;
+  disp_init(); // refresh all
+}
+
 static const ShellCommand commands[] =
 {
     { "reset", cmd_reset },
@@ -891,6 +904,7 @@ static const ShellCommand commands[] =
     { "clearconfig", cmd_clearconfig },
     { "phase", cmd_phase },
     { "finegain", cmd_finegain },
+    { "lcd", cmd_lcd },
     { NULL, NULL }
 };
 
@@ -1017,6 +1031,7 @@ int __attribute__((noreturn)) main(void)
    * Initialize display
    */
   disp_init();
+  ili9341_set_direction(config.lcd_rotation);
 #endif
   /*
    * Shell manager initialization.
