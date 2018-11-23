@@ -229,7 +229,8 @@ extern void set_fs(int fs);
 
 
 typedef struct {
-    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, SPDISP, WFDISP, MODE_MAX } mode;
+    enum { CHANNEL, FREQ, VOLUME, MOD, AGC, RFGAIN, AGC_MAXGAIN, CWTONE, IQBAL,
+         SPDISP, WFDISP, MODE_MAX } mode;
 	int8_t volume;
     uint8_t channel;
 
@@ -244,6 +245,7 @@ typedef struct {
     enum { SPDISP_CAP, SPDISP_CAP2, SPDISP_IF, SPDISP_AUD, SPDISP_MODE_MAX } spdispmode;
     enum { WATERFALL, WAVEFORM, WAVEFORM_MAG, WAVEFORM_MAG2, WFDISP_MODE_MAX } wfdispmode;
     int16_t cw_tone_freq;
+    int16_t iqbal;
 } uistat_t;
 
 extern uistat_t uistat;

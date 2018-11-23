@@ -530,6 +530,8 @@ arm_cfft_radix4_instance_q31 cfft_inst;
 
 //#define mag(r,i) (q31_t)(((q63_t)r*r)>>33)+(q31_t)(((q63_t)i*i)>>33)
 
+static int mag_shift = 0;
+
 
 #define BG_ACTIVE RGB565(15,10,10)
 #define BG_NORMAL 0x0000
@@ -564,6 +566,18 @@ const spectrumdisplay_param_t spdispparam_tbl[SPDISP_MODE_MAX] = {
   { 48000, -160*2, 2, 0,           160, 21, 0, 2, "kHz" },
   { 48000,      0, 1, 0,             0, 43, 0, 2, "kHz" }
 };
+
+const spectrumdisplay_param_t spdispparam_tbl_192khz[SPDISP_MODE_MAX] = {
+  // sps, off, stride, gain,   origin, step, base, unit, unitname
+  { 192000, -160*3, 3, 0,           160, 36, 0, 20, "kHz" },
+  { 192000, -160*3, 3, 0,           160, 36, 0, 20, "kHz" },
+  { 192000, -160*2, 2, 0,           160, 26, 0, 10, "kHz" },
+  { 192000,      0, 1, 0,             0, 26, 0, 5, "kHz" }
+};
+
+#define GET_SPDISP_PARAM(mode) \
+  ((uistat.fs == 192) ? &spdispparam_tbl_192khz[mode] : &spdispparam_tbl[mode])
+
 
 // when event sent with SEV from M4 core, filled following data
 typedef struct {
@@ -631,10 +645,10 @@ window_complex_15to31(q15_t *s1, q15_t *s2, size_t length)
 		uint32_t w = *__SIMD32(wf)++;
 		uint32_t i1i2 = *__SIMD32(s1)++;
 		uint32_t q1q2 = *__SIMD32(s2)++;
-		*dest++ = __SMULBB(i1i2, w);
-		*dest++ = __SMULBB(q1q2, w);
-		*dest++ = __SMULTT(i1i2, w);
-		*dest++ = __SMULTT(q1q2, w);
+		*dest++ = __SMULBB(i1i2, w) << mag_shift;
+		*dest++ = __SMULBB(q1q2, w) << mag_shift;
+		*dest++ = __SMULTT(i1i2, w) << mag_shift;
+		*dest++ = __SMULTT(q1q2, w) << mag_shift;
 	}
 }
 
@@ -651,9 +665,9 @@ window_real_15to31(q15_t *s1, size_t length)
 	while (length-- > 0) {
 		uint32_t w = *__SIMD32(wf)++;
 		uint32_t i1i2 = *__SIMD32(s1)++;
-		*dest++ = __SMULBB(i1i2, w);
+		*dest++ = __SMULBB(i1i2, w) << mag_shift;
 		*dest++ = 0;
-		*dest++ = __SMULTT(i1i2, w);
+		*dest++ = __SMULTT(i1i2, w) << mag_shift;
 		*dest++ = 0;
 	}
 }
@@ -673,10 +687,10 @@ window_complex_interleaved_15to31(q15_t *src, size_t length)
 		uint32_t w = *__SIMD32(wf)++;
 		uint32_t i1q1 = *__SIMD32(src)++;
 		uint32_t i2q2 = *__SIMD32(src)++;
-		*dest++ = __SMULBB(i1q1, w);
-		*dest++ = __SMULTB(i1q1, w);
-		*dest++ = __SMULBT(i2q2, w);
-		*dest++ = __SMULTT(i2q2, w);
+		*dest++ = __SMULBB(i1q1, w) << mag_shift;
+		*dest++ = __SMULTB(i1q1, w) << mag_shift;
+		*dest++ = __SMULBT(i2q2, w) << mag_shift;
+		*dest++ = __SMULTT(i2q2, w) << mag_shift;
 	}
 }
 
@@ -699,9 +713,9 @@ window_real_interleaved_15to31(q15_t *src, size_t length)
 		uint32_t i2q2 = *__SIMD32(src)++;
 		//if (adj)
         //i1i2 = (__QSUB16(i1i2, offset) << 4) & mask;
-		*dest++ = __SMULBB(i1q1, w);
+		*dest++ = __SMULBB(i1q1, w) << mag_shift;
 		*dest++ = 0;
-		*dest++ = __SMULBT(i2q2, w);
+		*dest++ = __SMULBT(i2q2, w) << mag_shift;
 		*dest++ = 0;
 	}
 }
@@ -773,7 +787,7 @@ draw_spectrogram(void)
 	//return;
 	//uint16_t gainshift = spdispinfo.p.overgain;
 	uint16_t mode = uistat.spdispmode;
-    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
+    const spectrumdisplay_param_t *param = GET_SPDISP_PARAM(mode);
 	int i = param->offset;
 	int16_t stride = param->stride;
     int16_t tune_pos = param->origin;
@@ -858,12 +872,10 @@ waterfall_init(void)
 //   22-16=6 : +-352
 //   22-3-16=3 : +-2816
 
-static int mag_shift = 0;
-
 static inline int
 v2ypos(q31_t v)
 {
-  v >>= 24 - mag_shift;
+  v >>= 24;
   v += HEIGHT/2;
   if (v < 0) v = 0;
   if (v >= HEIGHT) v = HEIGHT-1;
@@ -968,7 +980,9 @@ draw_waterfall(void)
 	int x;
 	q31_t *buf = spdispinfo.buffer;
 	uint16_t mode = uistat.spdispmode;
-    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
+    const spectrumdisplay_param_t *param = GET_SPDISP_PARAM(mode);
+    if (uistat.fs == 192)
+      param = &spdispparam_tbl_192khz[mode];
 	uint16_t *block = spi_buffer;
 	int i = param->offset;
 	int stride = param->stride;
@@ -1042,13 +1056,14 @@ draw_tick_abs(void)
 {
 	char str[10];
 	uint16_t mode = uistat.spdispmode;
-    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
+    const spectrumdisplay_param_t *param = GET_SPDISP_PARAM(mode);
 	uint16_t bg = BG_NORMAL;
 	uint16_t fg = uistat.mode == SPDISP ? FG_ACTIVE : FG_NORMAL;
 	int offset = param->origin;
 	//int step = param->tickstep;
 	int unit = param->tickunit;
-    float step = unit * 1024.0 / (48 * param->stride);
+    int fs = uistat.fs;
+    float step = unit * 1024.0 / (fs * param->stride);
     float freq = center_frequency;
     float x;
     
@@ -1082,7 +1097,7 @@ draw_tick(void)
       draw_tick_abs();
       return;
     }
-    const spectrumdisplay_param_t *param = &spdispparam_tbl[mode];
+    const spectrumdisplay_param_t *param = GET_SPDISP_PARAM(mode);
 	int x = param->origin;
 	int base = param->tickbase;
 	int xx;
@@ -1256,7 +1271,7 @@ draw_info(void)
 		strcpy(str, "-\003");
 	ili9341_drawfont_string(str, &NF20x24, x, y, fg, bg);
 	x += 40;
-	ili9341_drawfont(13, &NF20x24, x, y, fg, bg);
+	ili9341_drawfont(13, &NF20x24, x, y, fg, bg); // dB
 	x += 20;
 
 	fg = uistat.mode == MOD ? FG_ACTIVE : FG_MOD;
@@ -1278,6 +1293,54 @@ draw_info(void)
         fg = 0x070f;
       ili9341_drawfont(15, &NF20x24, x, y, fg, bg); 
     }
+}
+
+void
+draw_aux_info(void)
+{
+	char str[10];
+	int x = 0;
+	int y = 48;
+	uint16_t bg = BG_NORMAL;
+    uint16_t fg = FG_NORMAL;
+
+    ili9341_fill(0, y, 184, 24, 0x0000);
+
+    if (uistat.mode == AGC_MAXGAIN) {
+      fg = BG_NORMAL; bg = FG_NORMAL;
+    }
+      
+    ili9341_drawstring_5x7("AGC MAX ", x, y, fg, bg);
+    x += 40;
+    itoap(config.agc.maximum_gain, str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+
+    y += 8;
+    x = 0;
+    fg = FG_NORMAL; bg = BG_NORMAL;
+    if (uistat.mode == CWTONE) {
+      fg = BG_NORMAL; bg = FG_NORMAL;
+    }
+      
+    ili9341_drawstring_5x7("CWTONE ", x, y, fg, bg);
+    x += 35;
+    itoap(uistat.cw_tone_freq, str, 4, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+    x += 20;
+    ili9341_drawstring_5x7("Hz", x, y, fg, bg);
+
+    y += 8;
+    x = 0;
+    fg = FG_NORMAL; bg = BG_NORMAL;
+    if (uistat.mode == IQBAL) {
+      fg = BG_NORMAL; bg = FG_NORMAL;
+    }
+
+    ili9341_drawstring_5x7("IQBAL  ", x, y, fg, bg);
+    x += 35;
+    itoap(uistat.iqbal, str, 6, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+    x += 20;
 }
 
 void
@@ -1317,7 +1380,10 @@ disp_process(void)
       draw_channel_freq();
     else
       draw_freq();
-    draw_info();
+    if (uistat.mode != AGC_MAXGAIN && uistat.mode != CWTONE && uistat.mode != IQBAL)
+      draw_info();
+    else
+      draw_aux_info();
     spdispinfo.update_flag &= ~FLAG_UI;
   }
 

@@ -157,9 +157,9 @@ config_t config = {
     {  7100000, MOD_LSB },
     { 14100000, MOD_USB },
     { 21100000, MOD_USB },
-    { 26800050, MOD_FM },
-    { 27500050, MOD_FM },
-    { 28400050, MOD_FM },
+    { 26800200, MOD_FM_STEREO },
+    { 27500200, MOD_FM_STEREO },
+    { 28400200, MOD_FM_STEREO },
     {  2932000, MOD_USB },
     {  5628000, MOD_USB },
     {  6655000, MOD_USB },
@@ -192,6 +192,7 @@ void set_modulation(modulation_t mod)
   if (mod >= MOD_MAX)
     return;
 
+  uistat.fs = mod_table[mod].fs;
   set_fs(mod_table[mod].fs);
   signal_process = mod_table[mod].demod_func;
 
@@ -233,6 +234,25 @@ set_fs(int fs)
     // enable WCLK,BCLK
     tlv320aic3204_set_fs(fs);
   }
+}
+
+void
+update_cwtone(void)
+{
+    cw_tone_phasestep = PHASESTEP(uistat.cw_tone_freq);
+}
+
+void
+update_iqbal(void)
+{
+    double value = config.freq_inverse - (double)uistat.iqbal / 10000.0;
+    tlv320aic3204_config_adc_filter2(value);
+}
+
+void
+update_agc(void)
+{
+  set_agc_mode(uistat.agcmode);
 }
 
 void
@@ -519,8 +539,8 @@ static void cmd_iqbal(BaseSequentialStream *chp, int argc, char *argv[])
         chprintf(chp, "usage: iqbal {coeff}\r\n");
         return;
     }
-    double value = config.freq_inverse - (double)atoi(argv[0]) / 10000.0;
-    tlv320aic3204_config_adc_filter2(value);
+    uistat.iqbal = atoi(argv[0]);
+    update_iqbal();
 }
 
 static void cmd_volume(BaseSequentialStream *chp, int argc, char *argv[])
@@ -678,7 +698,7 @@ static void cmd_cwtone(BaseSequentialStream *chp, int argc, char *argv[])
         return;
     }
     uistat.cw_tone_freq = freq;
-    cw_tone_phasestep = PHASESTEP(freq);
+    update_cwtone();
 }
 
 static void cmd_fs(BaseSequentialStream *chp, int argc, char *argv[])
@@ -1012,7 +1032,9 @@ int __attribute__((noreturn)) main(void)
   ui_init();
 #endif
 
-  tlv320aic3204_config_adc_filter2(config.freq_inverse /* + 0.129 */); // enable DC reject
+  update_iqbal();
+  update_agc();
+  //tlv320aic3204_config_adc_filter2(config.freq_inverse /* + 0.129 */); // enable DC reject
   //tlv320aic3204_config_adc_filter(1); // enable DC reject
 
   /*
