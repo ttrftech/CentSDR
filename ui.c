@@ -282,15 +282,23 @@ ui_process(void)
         } else {
           if (tick < 0) {
             uistat.mode--;
+
+            if (uistat.mode == IQBAL || uistat.mode == RFGAIN)
+              disp_clear_aux();
+
             // skip rfgain if agc is enabled
             if (uistat.agcmode != 0 && uistat.mode == RFGAIN)
               uistat.mode--;
           }
           if (tick > 0) {
             uistat.mode++;
+
             // skip rfgain if agc is enabled
             if (uistat.agcmode != 0 && uistat.mode == RFGAIN)
               uistat.mode++;
+
+            if (uistat.mode == AGC_MAXGAIN || uistat.mode == SPDISP)
+              disp_clear_aux();
           }
           uistat.mode = uistat.mode % MODE_MAX;
         }

@@ -590,6 +590,7 @@ typedef struct {
 #define FLAG_SPDISP 	(1<<0)
 #define FLAG_POWER 		(1<<1)
 #define FLAG_UI 		(1<<2)
+#define FLAG_AUX_INFO	(1<<3)
 
 
 spectrumdisplay_t spdispinfo;
@@ -1304,15 +1305,13 @@ draw_aux_info(void)
 	uint16_t bg = BG_NORMAL;
     uint16_t fg = FG_NORMAL;
 
-    ili9341_fill(0, y, 184, 24, 0x0000);
-
     if (uistat.mode == AGC_MAXGAIN) {
       fg = BG_NORMAL; bg = FG_NORMAL;
     }
       
-    ili9341_drawstring_5x7("AGC MAX ", x, y, fg, bg);
-    x += 40;
-    itoap(config.agc.maximum_gain, str, 5, ' ');
+    ili9341_drawstring_5x7("AGCMAX", x, y, fg, bg);
+    x += 30;
+    itoap(config.agc.maximum_gain, str, 6, ' ');
     ili9341_drawstring_5x7(str, x, y, fg, bg);
 
     y += 8;
@@ -1322,8 +1321,8 @@ draw_aux_info(void)
       fg = BG_NORMAL; bg = FG_NORMAL;
     }
       
-    ili9341_drawstring_5x7("CWTONE ", x, y, fg, bg);
-    x += 35;
+    ili9341_drawstring_5x7("CWTONE", x, y, fg, bg);
+    x += 30;
     itoap(uistat.cw_tone_freq, str, 4, ' ');
     ili9341_drawstring_5x7(str, x, y, fg, bg);
     x += 20;
@@ -1336,11 +1335,57 @@ draw_aux_info(void)
       fg = BG_NORMAL; bg = FG_NORMAL;
     }
 
-    ili9341_drawstring_5x7("IQBAL  ", x, y, fg, bg);
-    x += 35;
+    ili9341_drawstring_5x7("IQBAL ", x, y, fg, bg);
+    x += 30;
     itoap(uistat.iqbal, str, 6, ' ');
     ili9341_drawstring_5x7(str, x, y, fg, bg);
     x += 20;
+
+    // show statistics
+    fg = FG_NORMAL; bg = BG_NORMAL;
+	y = 48;
+	x = 65;
+    ili9341_drawstring_5x7("BATT", x, y, fg, bg);
+    x += 20;
+    itoap(stat.battery, str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+    y += 8;
+	x = 65;
+    ili9341_drawstring_5x7("TEMP", x, y, fg, bg);
+    x += 20;
+    itoap(stat.temperature, str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+    y += 8;
+	x = 65;
+    ili9341_drawstring_5x7("VREF", x, y, fg, bg);
+    x += 20;
+    itoap(stat.vref, str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+
+    fg = FG_NORMAL; bg = BG_NORMAL;
+	y = 48;
+	x = 115;
+    ili9341_drawstring_5x7("RMS", x, y, fg, bg);
+    x += 15;
+    itoap(stat.rms[0], str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+    y += 8;
+	x = 115;
+    ili9341_drawstring_5x7("FPS", x, y, fg, bg);
+    x += 15;
+    itoap(stat.fps, str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+    y += 8;
+	x = 115;
+    ili9341_drawstring_5x7("OVF", x, y, fg, bg);
+    x += 15;
+    itoap(stat.overflow, str, 5, ' ');
+    ili9341_drawstring_5x7(str, x, y, fg, bg);
+}
+
+void clear_aux_info(void)
+{
+  ili9341_fill(0, 48, 184, 24, 0x0000);
 }
 
 void
@@ -1374,6 +1419,11 @@ disp_process(void)
     spdispinfo.update_flag &= ~FLAG_SPDISP;
   }
 
+  if (spdispinfo.update_flag & FLAG_AUX_INFO) {
+    clear_aux_info();
+    spdispinfo.update_flag &= ~FLAG_AUX_INFO;
+  }
+  
   if (spdispinfo.update_flag & FLAG_UI) {
     draw_tick();
     if (uistat.mode == CHANNEL)
@@ -1389,6 +1439,10 @@ disp_process(void)
 
   if (spdispinfo.update_flag & FLAG_POWER) {
     draw_power();
+
+    //if (uistat.mode == AGC_MAXGAIN || uistat.mode == CWTONE || uistat.mode == IQBAL)
+    //draw_aux_info();
+
     spdispinfo.update_flag &= ~FLAG_POWER;
   }
 }
@@ -1404,7 +1458,13 @@ disp_update_power(void)
 {
   spdispinfo.update_flag |= FLAG_POWER;
 }
-   
+
+void
+disp_clear_aux(void)
+{
+  spdispinfo.update_flag |= FLAG_AUX_INFO;
+}
+
 void
 disp_init(void)
 {
