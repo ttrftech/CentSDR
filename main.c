@@ -13,26 +13,11 @@
 
 #include <stm32f303xc.h>
 
-
-static struct {
-  int32_t rms[2];
-  int16_t ave[2];
-  int16_t min[2];
-  int16_t max[2];
-
-  uint32_t callback_count;
-  int32_t last_counter_value;
-  int32_t interval_cycles;
-  int32_t busy_cycles;
-
-  uint16_t fps_count;
-  uint16_t fps;
-  uint16_t overflow_count;
-  uint16_t overflow;
-} stat;
+stat_t stat;
 
 static void calc_stat(void);
 static void measure_power_dbm(void);
+static void measure_adc(void);
 
 static THD_WORKING_AREA(waThread1, 128);
 static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
@@ -54,6 +39,9 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
         stat.overflow = stat.overflow_count;
         stat.overflow_count = 0;
         count = 0;
+
+        measure_adc();
+        disp_update();
       }
     }
 }
@@ -424,6 +412,13 @@ uint16_t adc_single_read(ADC_TypeDef *adc, uint32_t chsel)
 #define ADC1_CHANNEL_TEMP 16
 #define ADC1_CHANNEL_BAT  17
 #define ADC1_CHANNEL_VREF 18
+
+static void measure_adc(void)
+{
+  stat.temperature = adc_single_read(ADC1, ADC1_CHANNEL_TEMP);
+  stat.battery = adc_single_read(ADC1, ADC1_CHANNEL_BAT);
+  stat.vref = adc_single_read(ADC1, ADC1_CHANNEL_VREF);
+}
 
 static void cmd_stat(BaseSequentialStream *chp, int argc, char *argv[])
 {

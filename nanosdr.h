@@ -22,7 +22,30 @@
  * main.c
  */
 
+
+typedef struct {
+  int32_t rms[2];
+  int16_t ave[2];
+  int16_t min[2];
+  int16_t max[2];
+
+  uint32_t callback_count;
+  int32_t last_counter_value;
+  int32_t interval_cycles;
+  int32_t busy_cycles;
+
+  uint16_t fps_count;
+  uint16_t fps;
+  uint16_t overflow_count;
+  uint16_t overflow;
+
+  uint16_t vref;
+  uint16_t temperature;
+  uint16_t battery;
+} stat_t;
+
 extern int16_t measured_power_dbm;
+extern stat_t stat;
 
 void set_agc_mode(int agcmode);
 
@@ -202,6 +225,7 @@ void disp_process(void);
 void disp_fetch_samples(int bufid, int type, int16_t *buf0, int16_t *buf1, size_t len);
 void disp_update(void);
 void disp_update_power(void);
+void disp_clear_aux(void);
 
 void set_window_function(int wf_type);
 
