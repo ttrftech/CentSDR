@@ -157,9 +157,9 @@ void ext_callback(EXTDriver *extp, expchannel_t channel)
     if (cur & (1 << channel))
       s |= 1; // rising
     if (enc_status == 0 && s == 3) // rising B
-      enc_count--;
+      enc_count -= config.rotary_encoder_direction;
     if (enc_status == 3 && s == 2) // falling B
-      enc_count++;
+      enc_count += config.rotary_encoder_direction;
     enc_status = trans_tbl[s][enc_status];
 #if 0
     if (channel == 0) {

@@ -295,6 +295,7 @@ typedef struct {
   int8_t freq_inverse;
   uint8_t button_polarity;
   int8_t lcd_rotation;
+  int8_t rotary_encoder_direction;
   int32_t checksum;
 } config_t;
 
