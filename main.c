@@ -159,7 +159,8 @@ config_t config = {
   },
   .button_polarity = 0x01,
   .freq_inverse = -1,
-  .lcd_rotation = 0
+  .lcd_rotation = 0,
+  .rotary_encoder_direction = -1
 };
 
 struct {
@@ -805,10 +806,17 @@ static void cmd_revision(BaseSequentialStream *chp, int argc, char *argv[])
   case 0:
     config.freq_inverse = 1;
     config.button_polarity = 0x00;
+    config.rotary_encoder_direction = 1;
     break;
   case 1:
     config.freq_inverse = -1;
     config.button_polarity = 0x01;
+    config.rotary_encoder_direction = 1;
+    break;
+  case 2:
+    config.freq_inverse = -1;
+    config.button_polarity = 0x01;
+    config.rotary_encoder_direction = -1;
     break;
   default:
     chprintf(chp, "unknown revision\r\n");
