@@ -9,6 +9,10 @@
 #define DELAY_RESET_PLL                         5000
 #endif
 
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+static uint8_t s_r0div_reg[3];
+#endif
+
 static void
 si5351_write(uint8_t reg, uint8_t dat)
 {
@@ -113,6 +117,12 @@ void si5351_setupPLL(uint8_t pll, /* SI5351_PLL_A or SI5351_PLL_B */
   si5351_bulk_write(reg, 9);
 }
 
+static const uint8_t msreg_base[] = {
+  SI5351_REG_42_MULTISYNTH0,
+  SI5351_REG_50_MULTISYNTH1,
+  SI5351_REG_58_MULTISYNTH2,
+};
+
 void 
 si5351_setupMultisynth(uint8_t     output,
                        uint8_t	   pllSource,
@@ -123,11 +133,6 @@ si5351_setupMultisynth(uint8_t     output,
                        uint8_t     drive_strength)
 {
   /* Get the appropriate starting point for the PLL registers */
-  const uint8_t msreg_base[] = {
-    SI5351_REG_42_MULTISYNTH0,
-    SI5351_REG_50_MULTISYNTH1,
-    SI5351_REG_58_MULTISYNTH2,
-  };
   const uint8_t clkctrl[] = {
     SI5351_REG_16_CLK0_CONTROL,
     SI5351_REG_17_CLK1_CONTROL,
@@ -178,6 +183,10 @@ si5351_setupMultisynth(uint8_t     output,
   reg[7] = (P2 & 0x0000FF00) >> 8;
   reg[8] = (P2 & 0x000000FF);
   si5351_bulk_write(reg, 9);
+
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+  s_r0div_reg[output] = reg[3];
+#endif
 
   /* Configure the clk control and enable the output */
   dat = drive_strength | SI5351_CLK_INPUT_MULTISYNTH_N;
@@ -245,6 +254,141 @@ si5351_set_frequency_fixedpll(int channel, int pll, int pllfreq, int freq,
     si5351_setupMultisynth(channel, pll, div, num, denom, rdiv, drive_strength);
 }
 
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+static bool adjusting_rdiv = false;
+static int rdiv_adj_freq;
+static uint16_t rdiv_adj_delay_max;
+static uint16_t rdiv_adj_delay_step;
+static uint16_t rdiv_adj_delay;
+
+static void set_rdiv(uint8_t channel, uint8_t rdiv)
+{
+  uint8_t dat = s_r0div_reg[channel];
+  dat &= 0x8f;
+  dat |= rdiv;
+  si5351_write(msreg_base[channel] + 2, dat);
+}
+
+static bool adjust_rdiv_for_quadrature()
+{
+  uint16_t buf[32];
+
+  set_rdiv(0, SI5351_R_DIV_1);
+  chThdSleepMicroseconds(rdiv_adj_delay);
+  set_rdiv(0, SI5351_R_DIV_4);
+
+  rdiv_adj_delay += rdiv_adj_delay_step;
+  if (rdiv_adj_delay > rdiv_adj_delay_max) {
+    rdiv_adj_delay -= rdiv_adj_delay_max;
+  }
+
+  if (rdiv_adj_freq >= 1000000) {
+    chSysLock();
+    {
+      register uint16_t *p = buf;
+      register volatile uint16_t *portb = (uint16_t *)0x48000410;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p++ = *portb;
+      *p   = *portb;
+    }
+    chSysUnlock();
+
+    uint16_t prev = 0xFFFF;
+    uint16_t *p = buf;
+    for (int i = 0; i < 32; i++) {
+      uint16_t curr = (buf[i] & 0x0C00) >> 10;
+      if (curr != prev) {
+        *p++ = prev = curr;
+      }
+    }
+  }
+  else {
+    chSysLock();
+    {
+      register uint16_t *p = buf;
+      register volatile uint16_t *portb = (uint16_t *)0x48000410;
+      register uint16_t val1;
+      register uint16_t val2 = 0;
+      while ((val1 = (*portb & 0x0C00)) == val2) { }
+      *p++ = val1;
+      while ((val2 = (*portb & 0x0C00)) == val1) { }
+      *p++ = val2;
+      while ((val1 = (*portb & 0x0C00)) == val2) { }
+      *p++ = val1;
+      while ((val2 = (*portb & 0x0C00)) == val1) { }
+      *p++ = val2;
+      while ((val1 = (*portb & 0x0C00)) == val2) { }
+      *p   = val1;
+    }
+    chSysUnlock();
+
+    for (int i = 0; i < 5; i++) {
+      buf[i] >>= 10;
+    }
+  }
+
+  static const uint8_t quadrature_next_seq[] = {
+    2,  // 0b00 -> 0b10
+    0,  // 0b01 -> 0b00
+    3,  // 0b10 -> 0b11
+    1,  // 0b11 -> 0b01
+  };
+  if (quadrature_next_seq[buf[0]] == buf[1] &&
+      quadrature_next_seq[buf[1]] == buf[2] &&
+      quadrature_next_seq[buf[2]] == buf[3] &&
+      quadrature_next_seq[buf[3]] == buf[4]
+  ) {
+    return false;
+  }
+  return true;
+}
+
+static void start_adjusting_rdiv(int freq)
+{
+  adjusting_rdiv = true;
+  rdiv_adj_freq = freq;
+  rdiv_adj_delay_max = 32;
+  rdiv_adj_delay_step = 3;
+  rdiv_adj_delay = rdiv_adj_delay_step;
+}
+
+void si5351_adjust_rdiv_if_necessary(void)
+{
+  if (adjusting_rdiv) {
+    adjusting_rdiv = adjust_rdiv_for_quadrature();
+  }
+}
+#endif
+
 #ifdef SI5351_GEN_QUADRATURE_LO
 static void
 si5351_set_frequency_quadrature(int pll, int freq,
@@ -309,6 +453,12 @@ si5351_set_frequency_quadrature(int pll, int freq,
       si5351_setupMultisynth(0, pll, ms_div, 0, 1, rdiv, drive_strength);
       si5351_setupMultisynth(1, pll, ms_div, 0, 1, rdiv, drive_strength);
       si5351_reset_pll();
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+      adjusting_rdiv = false;
+      if (rdiv != SI5351_R_DIV_1) {
+        start_adjusting_rdiv(freq / 4);
+      }
+#endif
     }
 }
 #endif
@@ -341,6 +491,15 @@ si5351_set_frequency(int freq)
 {
   int band;
   uint32_t rdiv = SI5351_R_DIV_1;
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+  if (freq < 100000)
+    freq = 100000;
+
+  if (freq < SI5351_SUPPORTED_QUADRATURE_FREQ_MIN) {   // < 3.5MHz
+    rdiv = SI5351_R_DIV_4;
+    freq *= 4;
+  }
+#else
   if (freq <= 100000000) {
     band = 0;
   } else if (freq < 150000000) {
@@ -351,12 +510,13 @@ si5351_set_frequency(int freq)
   if (freq <= 500000) {
     rdiv = SI5351_R_DIV_64;
 #ifdef SI5351_GEN_QUADRATURE_LO
-  } else if (freq < SI5351_SUPPORTED_QUADRATURE_FREQ_MIN) {   // <= 3.5MHz
+  } else if (freq < SI5351_SUPPORTED_QUADRATURE_FREQ_MIN) {   // < 3.5MHz
 #else
   } else if (freq <= 4000000) {   // <= 4MHz
 #endif
     rdiv = SI5351_R_DIV_8;
   }
+#endif
 
 #if 0
   if (current_band != band)

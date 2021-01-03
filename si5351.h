@@ -69,3 +69,5 @@ void si5351_setupMultisynth(uint8_t     output,
 
 void si5351_set_frequency(int freq);
 
+void si5351_adjust_rdiv_if_necessary(void);
+

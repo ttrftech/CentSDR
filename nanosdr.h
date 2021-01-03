@@ -27,6 +27,28 @@
  */
 //#define SI5351_GEN_QUADRATURE_LO      1
 
+#ifdef SI5351_GEN_QUADRATURE_LO
+/*
+  To support the quadrature LO down to 100kHz, enable the below SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ macro switch,
+  then modify the hardware:
+  - add 100ohm resistor in between PB10 (pin 21 on U5 STM32F303) and CLK0 (pin 10 on U7 Si5351A)
+  - add 100ohm resistor in between PB11 (pin 22 on U5 STM32F303) and CLK1 (pin 9 on U7 Si5351A)
+
+  How this work:
+  - Si5351A supports the Initial Phase Offset (CLKx_PHOFF) on each Output Multisynth, however it is only 7 bits so
+    not enough for the frequency below 4.761905MHz (Si5351A PLL is still working at 441MHz, so says below 3.5MHz)
+  - If you set up the R divider AFTER enabling the PLL, it starts counting at the time the Rx_DIV is set.
+  - That means if you keep toggling the Rx_DIV between 000b (Divided by 1) and 010b (Divided by 4) at random timing,
+    it eventually generates the quadrature LO.
+  - However you need to make sure it has correct phase, therefore connecting the CLK0 and CLK1 to GPIO pins is required
+    to monitor the phase difference.
+  - There may be a way to not using the GPIOs for detecting the phase, e.g. set up the CLK2 temporarily to the
+    receiving frequency + offset, then start capturing I/Q signal. By analyzing the signal, software should be able to
+    tell the quadrature LO has correct phase or not, if no other strong signal is blocking the CLK2 signal.
+ */
+//#define SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ      1
+#endif
+
 /*
  * main.c
  */
