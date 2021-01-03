@@ -302,7 +302,7 @@ si5351_set_frequency_quadrature(int pll, int freq,
     }
     si5351_setupPLL(pll, pll_mult, pll_num, PLL_DENOM_MAX);
 
-    if (ms_div != s_prev_ms_div) {
+    if (ms_div != s_prev_ms_div || rdiv != s_prev_rdiv) {
       s_prev_ms_div = ms_div;
       s_prev_rdiv = rdiv;
       s_prev_freq = freq;
