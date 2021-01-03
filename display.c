@@ -1167,6 +1167,13 @@ draw_freq(void)
 			ili9341_fill(x, 0, xsim[i], 48, bg);
 			x += xsim[i];
 		}
+
+		// draw 100MHz digit
+		if (i == 0) {
+			if (uistat.freq >= 100000000) {
+				ili9341_drawchar_5x7((uistat.freq / 100000000) + 0x30, 0, 0, 0xffff, bg);
+			}
+		}
 	}
 	// draw Hz symbol
 	ili9341_drawfont(10, &NF32x48, x, 0, 0xffff, bg);
@@ -1179,7 +1186,7 @@ draw_channel_freq(void)
 	uint16_t bg = BG_NORMAL;
 	uint16_t fg = uistat.mode == CHANNEL ? FG_ACTIVE : FG_NORMAL;
 	int i;
-	const uint16_t xsim[] = { 0, 16, 0, 0, 0 };
+	const uint16_t xsim[] = { 0, 0, 16, 0, 0, 0 };
 	uint16_t x = 0;
 
     ili9341_fill(x, 0, 20*2, 24, bg);
@@ -1191,10 +1198,10 @@ draw_channel_freq(void)
 
     bg = BG_NORMAL;
     ili9341_fill(x, 0, 52, 48, bg);
-    x += 24+12+16;
+    x += 24+12+16 - 32;
 
-    itoap(uistat.freq / 1000, str, 5, ' ');
-	for (i = 0; i < 5; i++) {
+    itoap(uistat.freq / 1000, str, 6, ' ');
+	for (i = 0; i < 6; i++) {
 		int8_t c = str[i] - '0';
 		if (c >= 0 && c <= 9)
 			ili9341_drawfont(c, &NF32x48, x, 0, FG_NORMAL, bg);

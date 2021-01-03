@@ -43,6 +43,10 @@ static __attribute__((noreturn)) THD_FUNCTION(Thread1, arg)
         measure_adc();
         disp_update();
       }
+
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+      si5351_adjust_rdiv_if_necessary();
+#endif
     }
 }
 
@@ -1024,6 +1028,11 @@ int __attribute__((noreturn)) main(void)
   i2sStartExchange(&I2SD2);
 #endif
   
+#ifdef SI5351_GEN_QUADRATURE_LO_BELOW_3500KHZ
+  palSetPadMode(GPIOB, 10, PAL_MODE_INPUT);
+  palSetPadMode(GPIOB, 11, PAL_MODE_INPUT);
+#endif
+
   dsp_init();
   
   /*
