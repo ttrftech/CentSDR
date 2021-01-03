@@ -19,6 +19,15 @@
  */
 
 /*
+  If you want to generate the quadrature LO directly from Si5351A without U2 (74LVC74APW),
+  enable the below SI5351_GEN_QUADRATURE_LO macro switch.
+  In that case you need to remove the U2 then populate the R5 and R6 with 0ohm resistor (jumper).
+  Si5351A only be able to generate the quadrature LO down to 3.5MHz, so below that frequency 
+  no phase shift between I and Q LO, meaning the CW, USB and LSB mode will not work properly.
+ */
+//#define SI5351_GEN_QUADRATURE_LO      1
+
+/*
  * main.c
  */
 
