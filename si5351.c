@@ -1,7 +1,13 @@
 #include "hal.h"
 #include "si5351.h"
+#include "nanosdr.h"
 
 #define SI5351_I2C_ADDR   	(0x60<<1)
+
+#ifdef SI5351_GEN_QUADRATURE_LO
+#define SI5351_SUPPORTED_QUADRATURE_FREQ_MIN    3500000
+#define DELAY_RESET_PLL                         5000
+#endif
 
 static void
 si5351_write(uint8_t reg, uint8_t dat)
@@ -40,8 +46,15 @@ void si5351_enable_output(void)
 
 void si5351_reset_pll(void)
 {
+#ifdef SI5351_GEN_QUADRATURE_LO
+  // Writing a 1<<5 will reset PLLA, 1<<7 reset PLLB, this is a self clearing bits.
+  // !!! Need delay before reset PLL for apply PLL freq changes before
+  chThdSleepMicroseconds(DELAY_RESET_PLL);
+  si5351_write(SI5351_REG_177_PLL_RESET, SI5351_PLL_RESET_B);
+#else
   //si5351_write(SI5351_REG_177_PLL_RESET, SI5351_PLL_RESET_A | SI5351_PLL_RESET_B);
   si5351_write(SI5351_REG_177_PLL_RESET, 0xAC);
+#endif
 }
 
 void si5351_setupPLL(uint8_t pll, /* SI5351_PLL_A or SI5351_PLL_B */
@@ -173,6 +186,29 @@ si5351_setupMultisynth(uint8_t     output,
   if (num == 0)
     dat |= SI5351_CLK_INTEGER_MODE;
   si5351_write(clkctrl[output], dat);
+
+#ifdef SI5351_GEN_QUADRATURE_LO
+  #define SI5351_REG_165_CLK0_PHOFF   165
+  #define SI5351_REG_166_CLK1_PHOFF   166
+  #define SI5351_REG_167_CLK2_PHOFF   167
+
+  uint8_t phoff = 0;
+  if (div < 128 && rdiv == 0) {
+    phoff = (uint8_t)div;
+    if (num >= (denom / 2) && phoff <= 126) {
+      phoff++;
+    }
+  }
+
+  if (output == 0) {
+    // I/cosine
+    si5351_write(SI5351_REG_165_CLK0_PHOFF, phoff);
+  }
+  else if (output == 1) {
+    // Q/sine
+    si5351_write(SI5351_REG_166_CLK1_PHOFF, 0);
+  }
+#endif
 }
 
 static uint32_t
@@ -208,6 +244,74 @@ si5351_set_frequency_fixedpll(int channel, int pll, int pllfreq, int freq,
     }
     si5351_setupMultisynth(channel, pll, div, num, denom, rdiv, drive_strength);
 }
+
+#ifdef SI5351_GEN_QUADRATURE_LO
+static void
+si5351_set_frequency_quadrature(int pll, int freq,
+                                uint32_t rdiv, uint8_t drive_strength)
+{
+    #define PLL_MAX_FREQ          900000000
+    #define PLL_MID_FREQ          750000000
+    #define PLL_MIN_FREQ          600000000
+    #define MULTISYNTH_DIV_MIN    4
+    #define MULTISYNTH_DIV_MAX    1800
+    #define PLL_DENOM_MAX         1048575
+    #define MULTISYNTH_PHOFF_MAX  126
+
+    static uint32_t s_prev_ms_div = 1;
+    static uint32_t s_prev_rdiv = SI5351_R_DIV_1;
+    static int s_prev_freq;
+
+    uint32_t pll_freq = freq * s_prev_ms_div;
+    uint32_t ms_div;
+    if (pll_freq <= PLL_MAX_FREQ &&
+        (pll_freq >= PLL_MIN_FREQ ||
+         (s_prev_ms_div == MULTISYNTH_PHOFF_MAX &&
+          rdiv == SI5351_R_DIV_1 &&
+          freq >= SI5351_SUPPORTED_QUADRATURE_FREQ_MIN)) &&
+        abs(freq - s_prev_freq) < (((PLL_MAX_FREQ - PLL_MIN_FREQ) / 2) / s_prev_ms_div)
+    ) {
+      // keep using current ms_div
+      ms_div = s_prev_ms_div;
+    }
+    else {
+      ms_div = (PLL_MID_FREQ + freq) / freq;
+      ms_div &= 0xFFFFFFFE;   // make it even number
+    }
+
+    // multisynth parameter
+    if (ms_div > MULTISYNTH_PHOFF_MAX && rdiv == SI5351_R_DIV_1 && freq >= SI5351_SUPPORTED_QUADRATURE_FREQ_MIN) {
+      ms_div = MULTISYNTH_PHOFF_MAX;  // this will cause the pll_freq to be below PLL_MIN_FREQ
+    }
+    if (ms_div >= MULTISYNTH_DIV_MAX) {
+      ms_div = MULTISYNTH_DIV_MAX;
+    }
+    if (ms_div < MULTISYNTH_DIV_MIN) {
+      ms_div = MULTISYNTH_DIV_MIN;
+    }
+
+    pll_freq = freq * ms_div;
+
+    // PLL parameter
+    uint32_t pll_mult = pll_freq / XTALFREQ;
+    uint32_t pll_remain = pll_freq % XTALFREQ;
+    uint32_t pll_num = ((uint64_t)pll_remain * PLL_DENOM_MAX + XTALFREQ / 2) / XTALFREQ;
+    if (pll_num == PLL_DENOM_MAX) {
+      pll_mult++;
+      pll_num = 0;
+    }
+    si5351_setupPLL(pll, pll_mult, pll_num, PLL_DENOM_MAX);
+
+    if (ms_div != s_prev_ms_div) {
+      s_prev_ms_div = ms_div;
+      s_prev_rdiv = rdiv;
+      s_prev_freq = freq;
+      si5351_setupMultisynth(0, pll, ms_div, 0, 1, rdiv, drive_strength);
+      si5351_setupMultisynth(1, pll, ms_div, 0, 1, rdiv, drive_strength);
+      si5351_reset_pll();
+    }
+}
+#endif
 
 void
 si5351_set_frequency_fixeddiv(int channel, int pll, int freq, int div,
@@ -246,7 +350,11 @@ si5351_set_frequency(int freq)
   }
   if (freq <= 500000) {
     rdiv = SI5351_R_DIV_64;
-  } else if (freq <= 4000000) {
+#ifdef SI5351_GEN_QUADRATURE_LO
+  } else if (freq < SI5351_SUPPORTED_QUADRATURE_FREQ_MIN) {   // <= 3.5MHz
+#else
+  } else if (freq <= 4000000) {   // <= 4MHz
+#endif
     rdiv = SI5351_R_DIV_8;
   }
 
@@ -255,6 +363,15 @@ si5351_set_frequency(int freq)
     si5351_disable_output();
 #endif
   
+#ifdef SI5351_GEN_QUADRATURE_LO
+  if (rdiv == SI5351_R_DIV_8) {
+    freq *= 8;
+  } else if (rdiv == SI5351_R_DIV_64) {
+    freq *= 64;
+  }
+  si5351_set_frequency_quadrature(SI5351_PLL_B, freq,
+                                  rdiv, drive_strength);
+#else
   switch (band) {
   case 0:
     if (rdiv == SI5351_R_DIV_8) {
@@ -289,6 +406,7 @@ si5351_set_frequency(int freq)
   }
 
   current_band = band;
+#endif
 }
 
 

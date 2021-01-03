@@ -197,7 +197,11 @@ void
 set_tune(int hz)
 {
   center_frequency = hz - mode_freq_offset;
+#ifdef SI5351_GEN_QUADRATURE_LO
+  si5351_set_frequency(center_frequency);
+#else
   si5351_set_frequency(center_frequency * 4);
+#endif
 }
 
 static int current_fs = 48;
