@@ -218,6 +218,29 @@ recall_channel(unsigned int channel)
   update_frequency();
 }
 
+static unsigned int next_valid_channel(unsigned int channel, int offs)
+{
+  #define SKIP_EMPTY_CHANNELS   0
+  int ch = (int)channel;
+  int dir = (offs < 0) ? -1 : 1;
+  offs = abs(offs);
+  while (offs > 0) {
+    do {
+      ch += dir;
+      if (ch < 0)
+        ch = CHANNEL_MAX - 1;
+      if (ch >= CHANNEL_MAX)
+        ch = 0;
+#if SKIP_EMPTY_CHANNELS
+    } while (config.channels[ch].freq == 0);
+#else
+    } while (false);
+#endif
+    offs--;
+  }
+  return (unsigned int)ch;
+}
+
 void
 ui_init(void)
 {
@@ -306,7 +329,7 @@ ui_process(void)
         inhibit_button_event();
       } else {
         if (uistat.mode == CHANNEL) {
-          uistat.channel = minmax(uistat.channel + tick, 0, CHANNEL_MAX);
+          uistat.channel = next_valid_channel(uistat.channel, tick);
           recall_channel(uistat.channel);
         } else if (uistat.mode == VOLUME) {
           uistat.volume = minmax(uistat.volume + tick, VOLUME_MIN, VOLUME_MAX+1);

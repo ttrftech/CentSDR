@@ -425,6 +425,21 @@ int8_t tlv320aic3204_get_right_agc_gain(void)
     return tlv320aic3204_read(0x65); /* Right Channel AGC Gain Flag */
 }
 
+uint8_t tlv320aic3204_read_register(uint8_t page, uint8_t reg)
+{
+    tlv320aic3204_write(0x00, page); /* Select Page */
+    uint8_t val = tlv320aic3204_read(reg);
+    tlv320aic3204_write(0x00, 0x00); /* Select Page 0 */
+    return val;
+}
+
+void tlv320aic3204_write_register(uint8_t page, uint8_t reg, uint8_t val)
+{
+    tlv320aic3204_write(0x00, page); /* Select Page */
+    tlv320aic3204_write(reg, val); /* Select Page */
+    tlv320aic3204_write(0x00, 0x00); /* Select Page 0 */
+}
+
 void tlv320aic3204_set_adc_phase_adjust(int8_t adjust)
 {
   tlv320aic3204_write(0x55, adjust);

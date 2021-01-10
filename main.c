@@ -765,7 +765,7 @@ static void cmd_show(BaseSequentialStream *chp, int argc, char *argv[])
 static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
 {
     if (argc == 0) {
-      chprintf(chp, "usage: channel [save|list] [n(0-99)]\r\n");
+      chprintf(chp, "usage: channel [save|del|list] [n(0-99)]\r\n");
       return;
     }
 
@@ -783,6 +783,18 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
       }
       config.channels[channel].freq = uistat.freq;
       config.channels[channel].modulation = uistat.modulation;
+    } else if (strncmp(argv[0], "del", 1) == 0) {
+      channel = uistat.channel;
+      if (argc >= 2) {
+        channel = atoi(argv[1]);
+        if (channel < 0 || channel >= CHANNEL_MAX) {
+          chprintf(chp, "specified channel is out of range\r\n");
+          return;
+        }
+      } else {
+        chprintf(chp, "channel %d deleted\r\n", channel);
+      }
+      config.channels[channel].freq = 0;
     } else if (strncmp(argv[0], "list", 1) == 0) {
       for (channel = 0; channel < CHANNEL_MAX; channel++) {
         if (config.channels[channel].freq) {
@@ -802,6 +814,42 @@ static void cmd_channel(BaseSequentialStream *chp, int argc, char *argv[])
       uistat.channel = channel;
       disp_update();
     }
+}
+
+static void cmd_copy_channels(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  if (argc < 3) {
+    chprintf(chp, "usage: copych [src_start_ch] [src_end_ch] [dst_ch]\r\n");
+    return;
+  }
+
+  int src_ch = atoi(argv[0]);
+  int channels = atoi(argv[1]) - src_ch + 1;
+  int dst_ch = atoi(argv[2]);
+
+  if (src_ch < 0 || CHANNEL_MAX <= src_ch ||
+      dst_ch < 0 || CHANNEL_MAX <= dst_ch ||
+    channels < 1
+  ) {
+    chprintf(chp, "error: parameter out of range\r\n");
+    return;
+  }
+
+  if (CHANNEL_MAX <= (src_ch + channels)) {
+    channels = CHANNEL_MAX - src_ch;
+  }
+  if (CHANNEL_MAX <= (dst_ch + channels)) {
+    channels = CHANNEL_MAX - dst_ch;
+  }
+
+  channel_t *src = &config.channels[src_ch];
+  channel_t *dst = &config.channels[dst_ch];
+  memmove(dst, src, channels * sizeof(channel_t));
+
+  int channel = uistat.channel;
+  recall_channel(channel);
+  uistat.mode = CHANNEL;
+  disp_update();
 }
 
 static void cmd_revision(BaseSequentialStream *chp, int argc, char *argv[])
@@ -888,6 +936,117 @@ static void cmd_lcd(BaseSequentialStream *chp, int argc, char *argv[])
   disp_init(); // refresh all
 }
 
+static void _sample_portb10_11(BaseSequentialStream *chp)
+{
+  uint16_t buf[5];
+  uint16_t buf2[32];
+  chThdSleepMilliseconds(100);
+
+  chSysLock();
+  {
+    register uint16_t *p = buf;
+    register volatile uint16_t *portb = (uint16_t *)0x48000410;
+    register uint16_t val1;
+    register uint16_t val2 = 0;
+    while ((val1 = (*portb & 0x0C00)) == val2) { }
+    *p++ = val1;
+    while ((val2 = (*portb & 0x0C00)) == val1) { }
+    *p++ = val2;
+    while ((val1 = (*portb & 0x0C00)) == val2) { }
+    *p++ = val1;
+    while ((val2 = (*portb & 0x0C00)) == val1) { }
+    *p++ = val2;
+    while ((val1 = (*portb & 0x0C00)) == val2) { }
+    *p   = val1;
+  }
+  {
+    register uint16_t *p = buf2;
+    register volatile uint16_t *portb = (uint16_t *)0x48000410;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p++ = *portb;
+    *p   = *portb;
+  }
+  chSysUnlock();
+
+  for (int i = 0; i < 5; i++) {
+    uint16_t b = buf[i];
+    chprintf(chp, "%c %c\r\n", ((b & 0x0800) ? '1' : '0'), ((b & 0x0400) ? '1' : '0'));
+  }
+  chprintf(chp, "\r\n");
+  for (int i = 0; i < 32; i++) {
+    uint16_t b = buf2[i];
+    chprintf(chp, "%c %c\r\n", ((b & 0x0800) ? '1' : '0'), ((b & 0x0400) ? '1' : '0'));
+  }
+}
+
+static void cmd_test(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+
+  _sample_portb10_11(chp);
+}
+
+static void cmd_audio_codec_read_register(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  if (argc < 2) {
+    chprintf(chp, "acr [page] [register]\r\n");
+  }
+
+  uint8_t page = atoi(argv[0]);
+  uint8_t reg = atoi(argv[1]);
+  uint8_t r = tlv320aic3204_read_register(page, reg);
+  chprintf(chp, "%02X\r\n", r);
+}
+
+static void cmd_audio_codec_write_register(BaseSequentialStream *chp, int argc, char *argv[])
+{
+  if (argc < 3) {
+    chprintf(chp, "acw [page] [register] [value]\r\n");
+  }
+
+  uint8_t page = atoi(argv[0]);
+  uint8_t reg = atoi(argv[1]);
+  uint8_t val = atoi(argv[2]);
+
+  uint8_t r = tlv320aic3204_read_register(page, reg);
+  chprintf(chp, "before: %02X\r\n", r);
+
+  tlv320aic3204_write_register(page, reg, val);
+
+  r = tlv320aic3204_read_register(page, reg);
+  chprintf(chp, "after: %02X\r\n", r);
+}
+
 static const ShellCommand commands[] =
 {
     { "reset", cmd_reset },
@@ -917,6 +1076,10 @@ static const ShellCommand commands[] =
     { "phase", cmd_phase },
     { "finegain", cmd_finegain },
     { "lcd", cmd_lcd },
+    { "test", cmd_test },
+    { "copych", cmd_copy_channels },
+    { "acr", cmd_audio_codec_read_register },
+    { "acw", cmd_audio_codec_write_register },
     { NULL, NULL }
 };
 

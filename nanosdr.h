@@ -114,6 +114,9 @@ extern void tlv320aic3204_set_adc_fine_gain_adjust(int8_t g1, int8_t g2);
 
 extern void tlv320aic3204_beep(void);
 
+extern uint8_t tlv320aic3204_read_register(uint8_t page, uint8_t reg);
+extern void tlv320aic3204_write_register(uint8_t page, uint8_t reg, uint8_t val);
+
 #define AIC3204_STICKY_ADC_OVERFLOW 0x0c
 
 /*
