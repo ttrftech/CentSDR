@@ -179,6 +179,7 @@ struct {
   { am_demod, AM_FREQ_OFFSET,  48, "am" },
   { fm_demod,              0, 192, "fm" },
   { fm_demod_stereo,       0, 192, "fms" },
+  { iq_demod,              0,  48, "i/q" },
 };
 
 void set_modulation(modulation_t mod)

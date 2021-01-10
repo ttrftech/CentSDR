@@ -150,6 +150,7 @@ void lsb_demod(int16_t *src, int16_t *dst, size_t len);
 void usb_demod(int16_t *src, int16_t *dst, size_t len);
 void fm_demod(int16_t *src, int16_t *dst, size_t len);
 void fm_demod_stereo(int16_t *src, int16_t *dst, size_t len);
+void iq_demod(int16_t *src, int16_t *dst, size_t len);
 
 void dsp_init(void);
 
@@ -210,7 +211,7 @@ extern const uint32_t icons48x20[][20*2];
 #define S_DEGREE "\037"
 #define S_RARROW "\033"
 
-#define ICON_AGC_OFF 6
+#define ICON_AGC_OFF 7
 
 
 /*
@@ -275,6 +276,7 @@ typedef enum {
 	MOD_AM,
 	MOD_FM,
 	MOD_FM_STEREO,
+	MOD_IQ,
 	MOD_MAX
 } modulation_t;
 
