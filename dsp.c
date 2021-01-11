@@ -397,6 +397,20 @@ usb_demod(int16_t *src, int16_t *dst, size_t len)
 }
 
 void
+iq_demod(int16_t *src, int16_t *dst, size_t len)
+{
+  uint32_t i;
+
+  disp_fetch_samples(B_CAPTURE, BT_C_INTERLEAVE, src, NULL, len);
+
+  for (i = 0; i < len; i++) {
+    *dst++ = *src++;
+  }
+
+  disp_fetch_samples(B_PLAYBACK, BT_R_INTERLEAVE, dst, NULL, len);
+}
+
+void
 cw_demod(int16_t *src, int16_t *dst, size_t len)
 {
   weaver_demod_conf_t dc = {
